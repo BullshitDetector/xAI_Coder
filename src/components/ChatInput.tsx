@@ -134,10 +134,51 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
     e.stopPropagation();
     setIsDragOver(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      processFiles(files);
+    const items = Array.from(e.dataTransfer.items);
+    const files: File[] = [];
+
+    // Handle files and folders
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const entry = item.webkitGetAsEntry();
+        if (entry && entry.isDirectory) {
+          // Folder detected - open modal for processing
+          readFolder(entry, files);
+        } else {
+          // Single file
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
     }
+
+    if (files.length > 0) {
+      if (files.some(file => file.webkitRelativePath)) {
+        // Folder structure detected - open modal
+        const folderFiles = files.filter(file => file.webkitRelativePath);
+        // For simplicity, process directly or open modal; here we process
+        processFiles(files);
+      } else {
+        processFiles(files);
+      }
+    }
+  };
+
+  const readFolder = (entry: any, files: File[]) => {
+    const reader = entry.createReader();
+    reader.readEntries((entries) => {
+      for (const e of entries) {
+        if (e.isDirectory) {
+          readFolder(e, files);
+        } else {
+          e.file((file) => {
+            if (file.webkitRelativePath) {
+              files.push(file);
+            }
+          });
+        }
+      }
+    });
   };
 
   return (
@@ -223,7 +264,7 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
           
           <div className="flex gap-3">
             <div
-              className={`relative flex-1 min-h-[52px] ${isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''}`}
+              className={`relative flex-1 min-h-[52px] rounded-lg border-2 border-dashed border-gray-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -232,10 +273,10 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isDragOver ? 'Drop files here...' : 'Type your message... (Shift + Enter for new line)'}
+                placeholder={isDragOver ? 'Drop files or folders here...' : 'Type your message... (Shift + Enter for new line)'}
                 disabled={disabled}
                 rows={1}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all w-full h-full"
+                className="flex-1 px-4 py-3 border-0 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all w-full h-full bg-transparent"
                 style={{ minHeight: '52px', maxHeight: '200px' }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
@@ -246,7 +287,7 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
               {isDragOver && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-blue-50/80 rounded-lg">
                   <Paperclip size={24} className="text-blue-600 mr-2" />
-                  <span className="text-blue-600 font-medium">Drop files to attach</span>
+                  <span className="text-blue-600 font-medium">Drop files or folders to attach</span>
                 </div>
               )}
             </div>
