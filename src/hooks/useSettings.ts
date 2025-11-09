@@ -64,13 +64,39 @@ export function useSettings() {
       ...newSettings,
     })
 
-    const { error } = await supabase
+    // Check if row exists
+    const { data: existing, error: checkError } = await supabase
       .from('user_settings')
-      .upsert(dbPayload, { on_conflict: 'user_id' })
+      .select('id')
+      .eq('user_id', userId)
+      .single()
 
-    if (error) {
-      console.error('Error saving settings:', error)
-      throw error
+    let saveError
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing settings:', checkError)
+      throw checkError
+    }
+
+    if (existing) {
+      // Update existing row
+      const { error: updateError } = await supabase
+        .from('user_settings')
+        .update(dbPayload)
+        .eq('user_id', userId)
+
+      saveError = updateError
+    } else {
+      // Insert new row
+      const { error: insertError } = await supabase
+        .from('user_settings')
+        .insert(dbPayload)
+
+      saveError = insertError
+    }
+
+    if (saveError) {
+      console.error('Error saving settings:', saveError)
+      throw saveError
     }
 
     setSettingsLocal(newSettings)
