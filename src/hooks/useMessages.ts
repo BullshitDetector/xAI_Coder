@@ -20,10 +20,11 @@ export function useMessages(currentConvId?: string) {
       userIdRef.current = userId
 
       await loadConversations()
+
       if (currentConvId) {
         await switchConversation(currentConvId)
       } else {
-        // Default to latest or create new
+        // Default to latest or create new (now after load, so conversations is updated)
         const latestConv = conversations[0]
         if (latestConv) {
           await switchConversation(latestConv.id)
