@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase, getUserId } from '../lib/supabase'
 import { Message, FileAttachment, Conversation } from '../types'
 
@@ -7,6 +7,7 @@ export function useMessages(currentConvId?: string) {
   const [isLoading, setIsLoading] = useState(true)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConv, setCurrentConv] = useState<Conversation | null>(null)
+  const userIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     async function initialize() {
@@ -16,17 +17,18 @@ export function useMessages(currentConvId?: string) {
         setIsLoading(false)
         return
       }
+      userIdRef.current = userId
 
-      await loadConversations(userId)
+      await loadConversations()
       if (currentConvId) {
-        await switchConversation(currentConvId, userId)
+        await switchConversation(currentConvId)
       } else {
         // Default to latest or create new
         const latestConv = conversations[0]
         if (latestConv) {
-          await switchConversation(latestConv.id, userId)
+          await switchConversation(latestConv.id)
         } else {
-          await createConversation('New Conversation', userId)
+          await createConversation('New Conversation')
         }
       }
       setIsLoading(false)
@@ -35,7 +37,10 @@ export function useMessages(currentConvId?: string) {
     initialize()
   }, [])
 
-  const loadConversations = async (userId: string) => {
+  const loadConversations = async () => {
+    const userId = userIdRef.current
+    if (!userId) return
+
     const { data, error } = await supabase
       .from('conversations')
       .select('id, title, created_at, updated_at')
@@ -50,7 +55,10 @@ export function useMessages(currentConvId?: string) {
     }
   }
 
-  const switchConversation = async (convId: string, userId: string) => {
+  const switchConversation = async (convId: string) => {
+    const userId = userIdRef.current
+    if (!userId) return
+
     setIsLoading(true)
     const { data: convData, error: convError } = await supabase
       .from('conversations')
@@ -91,7 +99,10 @@ export function useMessages(currentConvId?: string) {
     setIsLoading(false)
   }
 
-  const createConversation = async (title: string = 'New Conversation', userId: string) => {
+  const createConversation = async (title: string = 'New Conversation') => {
+    const userId = userIdRef.current
+    if (!userId) return
+
     const { data: newConv, error } = await supabase
       .from('conversations')
       .insert({ user_id: userId, title })
@@ -104,10 +115,13 @@ export function useMessages(currentConvId?: string) {
     }
 
     setConversations([newConv, ...conversations])
-    await switchConversation(newConv.id, userId)
+    await switchConversation(newConv.id)
   }
 
-  const deleteConversation = async (convId: string, userId: string) => {
+  const deleteConversation = async (convId: string) => {
+    const userId = userIdRef.current
+    if (!userId) return
+
     const { error } = await supabase
       .from('conversations')
       .delete()
@@ -123,14 +137,17 @@ export function useMessages(currentConvId?: string) {
       // Switch to another or create new
       const nextConv = conversations[0]
       if (nextConv) {
-        await switchConversation(nextConv.id, userId)
+        await switchConversation(nextConv.id)
       } else {
-        await createConversation('New Conversation', userId)
+        await createConversation('New Conversation')
       }
     }
   }
 
-  const updateConversationTitle = async (convId: string, newTitle: string, userId: string) => {
+  const updateConversationTitle = async (convId: string, newTitle: string) => {
+    const userId = userIdRef.current
+    if (!userId) return
+
     const { error } = await supabase
       .from('conversations')
       .update({ title: newTitle })
@@ -147,7 +164,12 @@ export function useMessages(currentConvId?: string) {
     }
   }
 
-  const addMessage = async (message: Omit<Message, 'id'>, userId: string) => {
+  const addMessage = async (message: Omit<Message, 'id'>) => {
+    const userId = userIdRef.current
+    if (!userId) {
+      throw new Error('User ID not available. Please refresh.')
+    }
+
     if (!currentConv) {
       throw new Error('No active conversation. Please select or create one.')
     }
@@ -182,18 +204,18 @@ export function useMessages(currentConvId?: string) {
       .eq('id', currentConv.id)
 
     // Refresh conversations list for updated_at
-    await loadConversations(userId)
+    await loadConversations()
   }
 
   return { 
     messages, 
     conversations, 
     currentConv, 
-    addMessage: (msg: Omit<Message, 'id'>) => addMessage(msg, userId), 
+    addMessage, 
     isLoading,
-    switchConversation: (convId: string) => switchConversation(convId, userId),
-    createConversation: (title?: string) => createConversation(title || 'New Conversation', userId),
-    deleteConversation: (convId: string) => deleteConversation(convId, userId),
-    updateConversationTitle: (convId: string, title: string) => updateConversationTitle(convId, title, userId)
+    switchConversation,
+    createConversation,
+    deleteConversation,
+    updateConversationTitle 
   }
 }

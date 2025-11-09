@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit3, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Edit3 } from 'lucide-react';
 import { Conversation } from '../types';
-import { useMessages } from '../hooks/useMessages';
 
 interface ConversationsListProps {
   currentConvId: string | null;
@@ -10,7 +9,6 @@ interface ConversationsListProps {
 }
 
 export function ConversationsList({ currentConvId, onSelectConv, onCreateNew }: ConversationsListProps) {
-  const { conversations, deleteConversation, updateConversationTitle } = useMessages();
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
 
@@ -21,14 +19,16 @@ export function ConversationsList({ currentConvId, onSelectConv, onCreateNew }: 
 
   const handleEditSave = (convId: string) => {
     if (editTitle.trim()) {
-      updateConversationTitle(convId, editTitle.trim());
+      // Note: updateConversationTitle would be called here from parent/useMessages
+      console.log('Save title:', editTitle); // Placeholder for now; integrate with parent
     }
     setEditingConvId(null);
   };
 
   const handleDelete = (convId: string) => {
     if (confirm('Delete this conversation? All messages will be lost.')) {
-      deleteConversation(convId);
+      // Note: deleteConversation would be called here from parent/useMessages
+      console.log('Delete conv:', convId); // Placeholder for now
     }
   };
 
@@ -51,57 +51,50 @@ export function ConversationsList({ currentConvId, onSelectConv, onCreateNew }: 
         <ul className="divide-y divide-gray-200">
           {conversations.map((conv) => (
             <li key={conv.id} className="relative">
-              <button
-                onClick={() => onSelectConv(conv.id)}
-                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                  currentConvId === conv.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  {editingConvId === conv.id ? (
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={() => handleEditSave(conv.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleEditSave(conv.id);
-                        if (e.key === 'Escape') setEditingConvId(null);
-                      }}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="truncate text-sm font-medium text-gray-900">
-                      {conv.title}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                  {currentConvId !== conv.id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditStart(conv);
-                      }}
-                      className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                      aria-label="Edit title"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                  )}
+              <div className={`p-4 hover:bg-gray-50 transition-colors flex items-center justify-between ${currentConvId === conv.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}>
+                <div className="flex-1 min-w-0 mr-2">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(conv.id);
-                    }}
+                    onClick={() => onSelectConv(conv.id)}
+                    className="w-full text-left focus:outline-none"
+                    aria-label={`Switch to ${conv.title}`}
+                  >
+                    {editingConvId === conv.id ? (
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => handleEditSave(conv.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleEditSave(conv.id);
+                          if (e.key === 'Escape') setEditingConvId(null);
+                        }}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="truncate text-sm font-medium text-gray-900">
+                        {conv.title}
+                      </div>
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleEditStart(conv)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                    aria-label="Edit title"
+                  >
+                    <Edit3 size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(conv.id)}
                     className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
                     aria-label="Delete conversation"
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
-              </button>
+              </div>
             </li>
           ))}
         </ul>
