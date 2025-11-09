@@ -36,7 +36,8 @@ export function ConversationsList({
     setEditingConvId(null);
   };
 
-  const handleDelete = (convId: string) => {
+  const handleDelete = (e: React.MouseEvent, convId: string) => {
+    e.stopPropagation(); // Prevent row click when deleting
     setDeletingConvId(convId);
   };
 
@@ -45,6 +46,10 @@ export function ConversationsList({
       onDeleteConv(deletingConvId);
       setDeletingConvId(null);
     }
+  };
+
+  const handleRowClick = (convId: string) => {
+    onSelectConv(convId);
   };
 
   return (
@@ -67,43 +72,44 @@ export function ConversationsList({
           <ul className="divide-y divide-gray-200">
             {conversations.map((conv) => (
               <li key={conv.id} className="relative">
-                <div className={`p-4 hover:bg-gray-50 transition-colors flex items-center justify-between ${currentConvId === conv.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}>
+                <div 
+                  onClick={() => handleRowClick(conv.id)}
+                  className={`p-4 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer select-none ${currentConvId === conv.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+                >
                   <div className="flex-1 min-w-0 mr-2">
-                    <button
-                      onClick={() => onSelectConv(conv.id)}
-                      className="w-full text-left focus:outline-none"
-                      aria-label={`Switch to ${conv.title}`}
-                    >
-                      {editingConvId === conv.id ? (
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onBlur={() => handleEditSave(conv.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleEditSave(conv.id);
-                            if (e.key === 'Escape') setEditingConvId(null);
-                          }}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                          autoFocus
-                        />
-                      ) : (
-                        <div className="truncate text-sm font-medium text-gray-900">
-                          {conv.title}
-                        </div>
-                      )}
-                    </button>
+                    {editingConvId === conv.id ? (
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => handleEditSave(conv.id)}
+                        onKeyDown={(e) => {
+                          e.stopPropagation(); // Prevent row click during edit
+                          if (e.key === 'Enter') handleEditSave(conv.id);
+                          if (e.key === 'Escape') setEditingConvId(null);
+                        }}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="truncate text-sm font-medium text-gray-900">
+                        {conv.title}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => handleEditStart(conv)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent row click when editing
+                        handleEditStart(conv);
+                      }}
                       className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                       aria-label="Edit title"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
-                      onClick={() => handleDelete(conv.id)}
+                      onClick={(e) => handleDelete(e, conv.id)}
                       className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
                       aria-label="Delete conversation"
                     >
