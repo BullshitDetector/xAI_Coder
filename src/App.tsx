@@ -7,7 +7,7 @@ import { ModelSelectorModal } from './components/ModelSelectorModal';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { SettingsPage } from './components/SettingsPage';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Routes, Route, Link } from 'react-router-dom';
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
