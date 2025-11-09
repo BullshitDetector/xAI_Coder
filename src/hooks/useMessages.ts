@@ -10,47 +10,24 @@ export function useMessages(currentConvId?: string) {
   const userIdRef = useRef<string | null>(null)
   const initializedRef = useRef(false)
 
-  useEffect(() => {
-    if (initializedRef.current) return
+  // Define all functions first to ensure scope for addMessage
+  const loadConversations = async () => {
+    const userId = userIdRef.current
+    if (!userId) return
 
-    async function initialize() {
-      setIsLoading(true)
-      const userId = await getUserId()
-      if (!userId) {
-        setIsLoading(false)
-        return
-      }
-      userIdRef.current = userId
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, title, created_at, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
 
-      const { data: convData, error } = await supabase
-        .from('conversations')
-        .select('id, title, created_at, updated_at')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-
-      if (error) {
-        console.error('Error loading conversations:', error)
-      } else {
-        setConversations(convData || [])
-      }
-
-      if (currentConvId) {
-        await switchConversation(currentConvId)
-      } else {
-        // Use fetched data directly to avoid state lag
-        const latestConvData = convData?.[0]
-        if (latestConvData) {
-          await switchConversation(latestConvData.id)
-        } else {
-          await createConversation('New Conversation')
-        }
-      }
-      setIsLoading(false)
-      initializedRef.current = true
+    if (error) {
+      console.error('Error loading conversations:', error)
+      setConversations([])
+    } else {
+      setConversations(data || [])
     }
-
-    initialize()
-  }, [])
+  }
 
   const switchConversation = async (convId: string) => {
     const userId = userIdRef.current
@@ -203,6 +180,48 @@ export function useMessages(currentConvId?: string) {
     // Refresh conversations list for updated_at
     await loadConversations()
   }
+
+  useEffect(() => {
+    if (initializedRef.current) return
+
+    async function initialize() {
+      setIsLoading(true)
+      const userId = await getUserId()
+      if (!userId) {
+        setIsLoading(false)
+        return
+      }
+      userIdRef.current = userId
+
+      const { data: convData, error } = await supabase
+        .from('conversations')
+        .select('id, title, created_at, updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading conversations:', error)
+      } else {
+        setConversations(convData || [])
+      }
+
+      if (currentConvId) {
+        await switchConversation(currentConvId)
+      } else {
+        // Use fetched data directly to avoid state lag
+        const latestConvData = convData?.[0]
+        if (latestConvData) {
+          await switchConversation(latestConvData.id)
+        } else {
+          await createConversation('New Conversation')
+        }
+      }
+      setIsLoading(false)
+      initializedRef.current = true
+    }
+
+    initialize()
+  }, [])
 
   return { 
     messages, 
