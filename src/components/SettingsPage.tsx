@@ -58,11 +58,13 @@ function ClearDataButton({ onDataCleared }: { onDataCleared?: () => void }) {
       const userId = await getUserId();
       if (!userId) return 'No user session - Supabase cloud storage';
       
-      // Fetch first conversation ID safely with maybeSingle to avoid 406 on empty
+      // Fetch latest conversation ID safely with limit(1) and maybeSingle to avoid PGRST116 on multiple rows
       const { data: convData, error: convError } = await supabase
         .from('conversations')
         .select('id')
         .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (convError) {
