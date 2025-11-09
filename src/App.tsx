@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Message, FileAttachment } from './types';
 import { useSettings } from './hooks/useSettings';
