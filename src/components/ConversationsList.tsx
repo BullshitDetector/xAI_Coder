@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Edit3, Search, X } from 'lucide-react';
 import { Conversation } from '../types';
 import { DeleteConversationModal } from './DeleteConversationModal';
 
@@ -23,6 +23,15 @@ export function ConversationsList({
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredConversations = conversations.filter((conv) =>
+    conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const clearSearch = () => {
+    setSearchTerm('');
+  };
 
   const handleEditStart = (conv: Conversation) => {
     setEditingConvId(conv.id);
@@ -56,21 +65,44 @@ export function ConversationsList({
     <>
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Conversations</h2>
-          <button
-            onClick={onCreateNew}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="New conversation"
-          >
-            <Plus size={18} />
-          </button>
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">Conversations</h2>
+            <button
+              onClick={onCreateNew}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="New conversation"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search conversations..."
+              className="w-full pl-10 pr-10 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            />
+            {searchTerm && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full transition-colors"
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
           <ul className="divide-y divide-gray-200">
-            {conversations.map((conv) => (
+            {filteredConversations.map((conv) => (
               <li key={conv.id} className="relative">
                 <div 
                   onClick={() => handleRowClick(conv.id)}
@@ -123,15 +155,17 @@ export function ConversationsList({
         </div>
 
         {/* Empty state */}
-        {conversations.length === 0 && (
+        {filteredConversations.length === 0 && (
           <div className="flex-1 flex items-center justify-center p-4 text-center">
             <div className="text-gray-500">
-              <p className="text-sm font-medium mb-2">No conversations yet</p>
+              <p className="text-sm font-medium mb-2">
+                {searchTerm ? 'No conversations matching your search.' : 'No conversations yet'}
+              </p>
               <button
                 onClick={onCreateNew}
                 className="text-blue-600 hover:text-blue-700 text-sm underline"
               >
-                Start a new conversation
+                {searchTerm ? 'Clear search' : 'Start a new conversation'}
               </button>
             </div>
           </div>
