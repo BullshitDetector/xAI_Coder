@@ -129,7 +129,7 @@ function App() {
       let currentMessageContent = content;
       if (attachments && attachments.length > 0) {
         currentMessageContent += `\n\nAttached files (${attachments.length}):\n`;
-        attachments.forEach((attachment) => {
+        for (const attachment of attachments) {
           currentMessageContent += `- ${attachment.name} (${attachment.type}, ${attachment.size} bytes)\n`;
           
           // For text files, include content
@@ -147,13 +147,26 @@ function App() {
               attachment.name.endsWith('.yaml') ||
               attachment.name.endsWith('.yml')) {
             try {
-              const textContent = atob(attachment.content);
-              currentMessageContent += `\nContent of ${attachment.name}:\n\`\`\`\n${textContent}\n\`\`\`\n`;
+              let textContent = '';
+              if (attachment.url) {
+                const response = await fetch(attachment.url);
+                if (response.ok) {
+                  textContent = await response.text();
+                } else {
+                  textContent = 'Unable to load file content';
+                }
+              } else if (attachment.content) {
+                textContent = atob(attachment.content);
+              } else {
+                textContent = 'No content available';
+              }
+              currentMessageContent += `\nContent of ${attachment.name}:\n\`\`\`\n${textContent.substring(0, 500)}\n\`\`\`\n`;
             } catch (error) {
               console.error('Error decoding text file:', error);
+              currentMessageContent += `\nContent of ${attachment.name}: (Unable to load content)\n`;
             }
           }
-        });
+        }
       }
 
       const payload = {
@@ -291,7 +304,7 @@ function App() {
                             <span className="text-white font-bold text-3xl">G</span>
                           </div>
                           <h2 className="text-2xl font-bold text-gray-900">Start a conversation</h2>
-                          <p className="text-gray-600 max-w-md">
+                          <p className="text-gray-500 max-w-md">
                             Ask me anything! I'm Grok, powered by xAI's advanced language model.
                           </p>
                         </div>
