@@ -8,8 +8,11 @@ export function useMessages(currentConvId?: string) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConv, setCurrentConv] = useState<Conversation | null>(null)
   const userIdRef = useRef<string | null>(null)
+  const initializedRef = useRef(false)
 
   useEffect(() => {
+    if (initializedRef.current) return
+
     async function initialize() {
       setIsLoading(true)
       const userId = await getUserId()
@@ -19,42 +22,35 @@ export function useMessages(currentConvId?: string) {
       }
       userIdRef.current = userId
 
-      await loadConversations()
+      const { data: convData, error } = await supabase
+        .from('conversations')
+        .select('id, title, created_at, updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading conversations:', error)
+      } else {
+        setConversations(convData || [])
+      }
 
       if (currentConvId) {
         await switchConversation(currentConvId)
       } else {
-        // Default to latest or create new (now after load, so conversations is updated)
-        const latestConv = conversations[0]
-        if (latestConv) {
-          await switchConversation(latestConv.id)
+        // Use fetched data directly to avoid state lag
+        const latestConvData = convData?.[0]
+        if (latestConvData) {
+          await switchConversation(latestConvData.id)
         } else {
           await createConversation('New Conversation')
         }
       }
       setIsLoading(false)
+      initializedRef.current = true
     }
 
     initialize()
   }, [])
-
-  const loadConversations = async () => {
-    const userId = userIdRef.current
-    if (!userId) return
-
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('id, title, created_at, updated_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-
-    if (error) {
-      console.error('Error loading conversations:', error)
-      setConversations([])
-    } else {
-      setConversations(data || [])
-    }
-  }
 
   const switchConversation = async (convId: string) => {
     const userId = userIdRef.current
