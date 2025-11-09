@@ -1,4 +1,4 @@
-import { Send, Cpu, Paperclip, X } from 'lucide-react';
+import { Send, Cpu, Paperclip, X, Folder } from 'lucide-react';
 import { useState, KeyboardEvent } from 'react';
 import { FileAttachment } from '../types';
 import { FolderUploadModal } from './FolderUploadModal';
