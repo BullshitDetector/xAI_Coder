@@ -123,7 +123,7 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
           {attachments.length > 0 && (
             <div className="mb-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600 font-medium">
+                <p className="text-sm text-gray-500 font-medium">
                   {attachments.length} file{attachments.length !== 1 ? 's' : ''} attached
                 </p>
                 <button
@@ -158,77 +158,77 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
                   </button>
                 </div>
               ))}
-            </ul>
-          </div>
-        )}
+            </div>
+          )}
 
-        <div className="flex gap-3 mb-3">
-          <button
-            type="button"
-            onClick={onOpenModelSelector}
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-            disabled={disabled}
-          >
-            <Cpu size={16} />
-            <span>{getModelDisplayName(currentModel)}</span>
-          </button>
-          
-          <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium cursor-pointer">
-            <Paperclip size={16} />
-            <span>Attach</span>
-            <input
-              type="file"
-              multiple
-              onChange={handleFileSelect}
+          <div className="flex gap-3 mb-3">
+            <button
+              type="button"
+              onClick={onOpenModelSelector}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
               disabled={disabled}
-              className="hidden"
-              accept="*/*"
-            />
-          </label>
+            >
+              <Cpu size={16} />
+              <span>{getModelDisplayName(currentModel)}</span>
+            </button>
+            
+            <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <Paperclip size={16} />
+              <span>Attach</span>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                disabled={disabled}
+                className="hidden"
+                accept="*/*"
+              />
+            </label>
+            
+            <button
+              type="button"
+              onClick={handleFolderSelect}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+              disabled={disabled}
+            >
+              <Folder size={16} />
+              <span>Folder</span>
+            </button>
+          </div>
           
-          <button
-            type="button"
-            onClick={handleFolderSelect}
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-            disabled={disabled}
-          >
-            <Folder size={16} />
-            <span>Folder</span>
-          </button>
+          <div className="flex gap-3">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message... (Shift + Enter for new line)"
+              disabled={disabled}
+              rows={1}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
+              style={{ minHeight: '52px', maxHeight: '200px' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = '52px';
+                target.style.height = target.scrollHeight + 'px';
+              }}
+            />
+            <button
+              type="submit"
+              disabled={disabled || (!input.trim() && attachments.length === 0)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
+            >
+              <Send size={20} />
+              <span className="hidden sm:inline">Send</span>
+            </button>
+          </div>
         </div>
-        
-        <div className="flex gap-3">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Shift + Enter for new line)"
-            disabled={disabled}
-            rows={1}
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
-            style={{ minHeight: '52px', maxHeight: '200px' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = '52px';
-              target.style.height = target.scrollHeight + 'px';
-            }}
-          />
-          <button
-            type="submit"
-            disabled={disabled || (!input.trim() && attachments.length === 0)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
-          >
-            <Send size={20} />
-            <span className="hidden sm:inline">Send</span>
-          </button>
-        </div>
-      </div>
-    </form>
+      </form>
 
-    <FolderUploadModal
-      isOpen={isFolderModalOpen}
-      onClose={() => setIsFolderModalOpen(false)}
-      onConfirm={handleFolderConfirm}
-    />
+      <FolderUploadModal
+        isOpen={isFolderModalOpen}
+        onClose={() => setIsFolderModalOpen(false)}
+        onConfirm={handleFolderConfirm}
+      />
+    </>
   );
 }
