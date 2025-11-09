@@ -1,21 +1,25 @@
 import { useRef, useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Message, FileAttachment } from './types';
 import { useSettings } from './hooks/useSettings';
 import { useMessages } from './hooks/useMessages';
-import { SettingsModal } from './components/SettingsModal';
 import { ModelSelectorModal } from './components/ModelSelectorModal';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
+import { SettingsPage } from './components/SettingsPage';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const { settings, setSettings, isLoading: isLoadingSettings } = useSettings();
   const { messages, addMessage, isLoading: isLoadingMessages } = useMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isSettingsPage = location.pathname === '/settings';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,7 +32,7 @@ function App() {
   const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
     if (!settings.apiKey) {
       setError('Please configure your API key in settings');
-      setIsSettingsOpen(true);
+      navigate('/settings');
       return;
     }
 
@@ -156,28 +160,36 @@ function App() {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Open settings"
-          >
-            <SettingsIcon size={24} className="text-gray-600" />
-          </button>
+          {!isSettingsPage ? (
+            <Link
+              to="/settings"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Open settings"
+            >
+              <SettingsIcon size={24} className="text-gray-600" />
+            </Link>
+          ) : null}
         </div>
       </header>
 
-      {!hasApiKey && (
+      {!isSettingsPage && !hasApiKey && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
             <p className="text-sm">
               Please configure your API key in settings to start chatting.
             </p>
+            <button
+              onClick={() => navigate('/settings')}
+              className="ml-auto text-yellow-600 hover:text-yellow-700 font-medium text-sm underline"
+            >
+              Go to Settings
+            </button>
           </div>
         </div>
       )}
 
-      {error && (
+      {!isSettingsPage && error && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-red-800">
             <AlertCircle size={20} />
@@ -192,58 +204,61 @@ function App() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-3xl">G</span>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Start a conversation</h2>
-                <p className="text-gray-600 max-w-md">
-                  Ask me anything! I'm Grok, powered by xAI's advanced language model.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {messages.map((message, index) => (
-                <ChatMessage key={index} message={message} />
-              ))}
-              {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                    <Loader2 size={18} className="text-white animate-spin" />
-                  </div>
-                  <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-4xl mx-auto px-4 py-6">
+                {messages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+                        <span className="text-white font-bold text-3xl">G</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900">Start a conversation</h2>
+                      <p className="text-gray-600 max-w-md">
+                        Ask me anything! I'm Grok, powered by xAI's advanced language model.
+                      </p>
                     </div>
                   </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+                ) : (
+                  <div className="space-y-6">
+                    {messages.map((message, index) => (
+                      <ChatMessage key={index} message={message} />
+                    ))}
+                    {isLoading && (
+                      <div className="flex gap-3 justify-start">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                          <Loader2 size={18} className="text-white animate-spin" />
+                        </div>
+                        <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3">
+                          <div className="flex gap-1">
+                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          }
+        />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
 
-      <ChatInput
-        onSend={sendMessage}
-        disabled={isLoading || !hasApiKey}
-        currentModel={settings.model}
-        onOpenModelSelector={() => setIsModelSelectorOpen(true)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSave={setSettings}
-      />
+      {!isSettingsPage && (
+        <ChatInput
+          onSend={sendMessage}
+          disabled={isLoading || !hasApiKey}
+          currentModel={settings.model}
+          onOpenModelSelector={() => setIsModelSelectorOpen(true)}
+        />
+      )}
 
       <ModelSelectorModal
         isOpen={isModelSelectorOpen}
