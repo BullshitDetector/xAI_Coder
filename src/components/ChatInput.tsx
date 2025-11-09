@@ -2,6 +2,7 @@ import { Send, Cpu, Paperclip, X, Folder } from 'lucide-react';
 import { useState, KeyboardEvent } from 'react';
 import { FileAttachment } from '../types';
 import { FolderUploadModal } from './FolderUploadModal';
+import { uploadFile } from '../lib/supabase';
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: FileAttachment[]) => void;
@@ -57,19 +58,31 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
       }
 
       try {
-        const content = await fileToBase64(file);
+        // Upload to Supabase storage
+        const userId = await getUserId(); // Assume imported or available
+        if (!userId) {
+          alert('User not authenticated. Please refresh.');
+          continue;
+        }
+
+        const url = await uploadFile(file, userId);
+        if (!url) {
+          alert(`Failed to upload "${file.name}".`);
+          continue;
+        }
+
         const attachment: FileAttachment = {
           id: crypto.randomUUID(),
           name: file.name,
           size: file.size,
           type: file.type,
-          content,
+          url, // Use URL from storage
         };
         
         setAttachments(prev => [...prev, attachment]);
       } catch (error) {
-        console.error('Error reading file:', error);
-        alert(`Failed to read file "${file.name}"`);
+        console.error('Error uploading file:', error);
+        alert(`Failed to upload "${file.name}".`);
       }
     }
   };
@@ -134,51 +147,10 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
     e.stopPropagation();
     setIsDragOver(false);
 
-    const items = Array.from(e.dataTransfer.items);
-    const files: File[] = [];
-
-    // Handle files and folders
-    for (const item of items) {
-      if (item.kind === 'file') {
-        const entry = item.webkitGetAsEntry();
-        if (entry && entry.isDirectory) {
-          // Folder detected - open modal for processing
-          readFolder(entry, files);
-        } else {
-          // Single file
-          const file = item.getAsFile();
-          if (file) files.push(file);
-        }
-      }
-    }
-
+    const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      if (files.some(file => file.webkitRelativePath)) {
-        // Folder structure detected - open modal
-        const folderFiles = files.filter(file => file.webkitRelativePath);
-        // For simplicity, process directly or open modal; here we process
-        processFiles(files);
-      } else {
-        processFiles(files);
-      }
+      processFiles(files);
     }
-  };
-
-  const readFolder = (entry: any, files: File[]) => {
-    const reader = entry.createReader();
-    reader.readEntries((entries) => {
-      for (const e of entries) {
-        if (e.isDirectory) {
-          readFolder(e, files);
-        } else {
-          e.file((file) => {
-            if (file.webkitRelativePath) {
-              files.push(file);
-            }
-          });
-        }
-      }
-    });
   };
 
   return (

@@ -3,7 +3,8 @@ export interface FileAttachment {
   name: string;
   size: number;
   type: string;
-  content: string; // base64 encoded
+  content?: string; // base64 encoded (legacy)
+  url?: string; // Supabase public URL (new for storage)
 }
 
 export interface Message {

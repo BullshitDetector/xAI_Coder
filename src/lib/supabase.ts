@@ -19,3 +19,36 @@ export async function getMessageCount(userId: string): Promise<number> {
   }
   return data || 0
 }
+
+// New: Upload file to Supabase storage and return public URL
+export async function uploadFile(file: File, userId: string): Promise<string | null> {
+  if (!file) return null;
+
+  const fileName = `${userId}/${Date.now()}-${file.name}`;
+  const { data, error } = await supabase.storage
+    .from('attachments') // Bucket name; create in Supabase dashboard if not exists
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Upload error:', error);
+    return null;
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('attachments')
+    .getPublicUrl(fileName);
+
+  return publicUrl;
+}
+
+// New: Delete file from Supabase storage (optional, for cleanup)
+export async function deleteFile(filePath: string): Promise<boolean> {
+  const { error } = await supabase.storage
+    .from('attachments')
+    .remove([filePath]);
+
+  return !error;
+}
