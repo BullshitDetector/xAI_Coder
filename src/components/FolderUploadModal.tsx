@@ -23,6 +23,7 @@ export function FolderUploadModal({
   const [processedAttachments, setProcessedAttachments] = useState<FileAttachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLimitExceededModalOpen, setIsLimitExceededModalOpen] = useState(false);
+  const [folderName, setFolderName] = useState('Selected Folder'); // Default name
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function FolderUploadModal({
       setError(null);
       setIsProcessing(false);
       setIsLimitExceededModalOpen(false);
+      setFolderName('Selected Folder');
       // Trigger folder selection
       fileInputRef.current?.click();
     }
@@ -41,6 +43,11 @@ export function FolderUploadModal({
   const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
+    // Extract folder name from first file path (webkitRelativePath)
+    const firstFilePath = files[0].webkitRelativePath || files[0].name;
+    const extractedFolderName = firstFilePath.split('/')[0] || 'Selected Folder';
+    setFolderName(extractedFolderName);
 
     // Filter out hidden/system files and enforce limits
     const validFiles = files.filter((file) => {
@@ -140,7 +147,7 @@ export function FolderUploadModal({
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Close modal"
             >
               <X size={24} />
@@ -178,7 +185,7 @@ export function FolderUploadModal({
               // File preview and processing
               <div>
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Selected Files ({selectedFiles.length})</h4>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Selected Files from "{folderName}" ({selectedFiles.length})</h4>
                   <ul className="space-y-1 max-h-48 overflow-y-auto">
                     {selectedFiles.map((file) => (
                       <li key={file.name} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-xs">
@@ -243,6 +250,7 @@ export function FolderUploadModal({
         onClose={() => setIsLimitExceededModalOpen(false)}
         exceededCount={selectedFiles.length}
         maxFiles={maxFiles}
+        folderName={folderName}
       />
     </>
   );
