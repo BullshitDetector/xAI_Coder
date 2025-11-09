@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Edit3 } from 'lucide-react';
 import { Conversation } from '../types';
+import { DeleteConversationModal } from './DeleteConversationModal';
 
 interface ConversationsListProps {
   currentConvId: string | null;
@@ -21,6 +22,7 @@ export function ConversationsList({
 }: ConversationsListProps) {
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
 
   const handleEditStart = (conv: Conversation) => {
     setEditingConvId(conv.id);
@@ -35,8 +37,13 @@ export function ConversationsList({
   };
 
   const handleDelete = (convId: string) => {
-    if (confirm('Delete this conversation? All messages will be lost.')) {
-      onDeleteConv(convId);
+    setDeletingConvId(convId);
+  };
+
+  const confirmDelete = () => {
+    if (deletingConvId) {
+      onDeleteConv(deletingConvId);
+      setDeletingConvId(null);
     }
   };
 
@@ -122,6 +129,14 @@ export function ConversationsList({
           </div>
         </div>
       )}
+
+      {/* Delete Modal */}
+      <DeleteConversationModal
+        isOpen={!!deletingConvId}
+        onClose={() => setDeletingConvId(null)}
+        onConfirm={confirmDelete}
+        conversationName={conversations.find(c => c.id === deletingConvId)?.title || 'this conversation'}
+      />
     </div>
   );
 }
