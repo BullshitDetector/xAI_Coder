@@ -14,6 +14,7 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const getModelDisplayName = (model: string) => {
     if (model === 'auto') return 'Auto';
@@ -115,6 +116,30 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
     }
   };
 
+  // Drag and Drop handlers
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processFiles(files);
+    }
+  };
+
   return (
     <>
       <form onSubmit={handleSubmit} className="border-t bg-white p-4">
@@ -197,21 +222,34 @@ export function ChatInput({ onSend, disabled, currentModel, onOpenModelSelector 
           </div>
           
           <div className="flex gap-3">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message... (Shift + Enter for new line)"
-              disabled={disabled}
-              rows={1}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
-              style={{ minHeight: '52px', maxHeight: '200px' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = '52px';
-                target.style.height = target.scrollHeight + 'px';
-              }}
-            />
+            <div
+              className={`relative flex-1 min-h-[52px] ${isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isDragOver ? 'Drop files here...' : 'Type your message... (Shift + Enter for new line)'}
+                disabled={disabled}
+                rows={1}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-all w-full h-full"
+                style={{ minHeight: '52px', maxHeight: '200px' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = '52px';
+                  target.style.height = target.scrollHeight + 'px';
+                }}
+              />
+              {isDragOver && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-blue-50/80 rounded-lg">
+                  <Paperclip size={24} className="text-blue-600 mr-2" />
+                  <span className="text-blue-600 font-medium">Drop files to attach</span>
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={disabled || (!input.trim() && attachments.length === 0)}
