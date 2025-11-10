@@ -410,29 +410,4 @@ function App() {
 
       {!isSettingsPage && error && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-3">
-          <div className="max-w-4xl mx-auto flex items-center gap-3 text-red-800">
-            <AlertCircle size={20} />
-            <p className="text-sm">{error}</p>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-600 hover:text-red-700 font-medium text-sm"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      <ModelSelectorModal
-        isOpen={isModelSelectorOpen}
-        onClose={() => setIsModelSelectorOpen(false)}
-        currentModel={settings.model}
-        onSelectModel={(model) => {
-          setSettings({ ...settings, model });
-        }}
-      />
-    </div>
-  );
-}
-
-export default App;
+          <div className="max-w-4xl mx-auto flex items-center gap-3 text-red
