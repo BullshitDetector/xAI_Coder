@@ -4,7 +4,8 @@ import { Message, FileAttachment } from './types';
 import { useSettings } from './hooks/useSettings';
 import { useMessages } from './hooks/useMessages';
 import { ModelSelectorModal } from './components/ModelSelectorModal';
-import { HierarchicalSidebar } from './components/HierarchicalSidebar';
+import { ProjectsList } from './components/ProjectsList';
+import { ConversationsList } from './components/ConversationsList';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { SettingsPage } from './components/SettingsPage';
@@ -67,23 +68,23 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
+  const handleCreateNewProject = () => {
+    createProject();
+  };
+
   const handleSelectProject = (projectId: string) => {
     setCurrentProjectId(projectId);
     setCurrentConvId(null); // Reset conv when switching projects
     setIsSidebarOpen(false); // Close on mobile
   };
 
-  const handleCreateNewProject = () => {
-    createProject();
+  const handleCreateNewConv = () => {
+    createConversation();
   };
 
   const handleSelectConv = (convId: string) => {
     setCurrentConvId(convId);
     setIsSidebarOpen(false); // Close on mobile
-  };
-
-  const handleCreateNewConv = (projectId?: string) => {
-    createConversation(); // Can pass projectId if needed, but currentProject handles it
   };
 
   const handleDeleteConv = (convId: string) => {
@@ -92,8 +93,8 @@ function App() {
 
   const handleUpdateTitle = (itemId: string, newTitle: string, isProject: boolean) => {
     if (isProject) {
-      // Update project title
-      console.log('Update project:', itemId, newTitle); // Placeholder for API
+      // Update project title (implement API if needed)
+      console.log('Update project title:', itemId, newTitle);
     } else {
       updateConversationTitle(itemId, newTitle);
     }
@@ -276,7 +277,7 @@ function App() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className={`fixed md:static inset-y-0 left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out w-64 bg-white border-r border-gray-200`}>
+        <div className="fixed md:static inset-y-0 left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out w-64 bg-white border-r border-gray-200">
           <div className="flex h-full">
             {/* Projects Sidebar */}
             <ProjectsList
@@ -311,7 +312,7 @@ function App() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {!isSettingsPage && (
             <div className="border-b border-gray-200 bg-white">
-              <div className="max-w-4xl mx-auto px-4 py-2">
+              <div className="max-w-4xl mx-auto px-4 py-4">
                 <h2 className="text-lg font-semibold text-gray-900">
                   {currentConv?.title || 'New Conversation'}
                 </h2>
