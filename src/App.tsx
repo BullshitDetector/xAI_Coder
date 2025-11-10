@@ -50,7 +50,6 @@ function App() {
     createProject,
     deleteConversation,
     updateConversationTitle,
-    // These were missing — now exposed!
     setProjects,
     setCurrentProject,
   } = useMessages(currentConvId, currentProjectId, {
@@ -75,7 +74,6 @@ function App() {
     init()
   }, [])
 
-  // Handlers
   const handleSelectProject = (id: string) => {
     setCurrentProjectId(id)
     setCurrentConvId(null)
@@ -117,7 +115,6 @@ function App() {
     }
   }
 
-  // FULLY WORKING PROJECT RENAME
   const handleUpdateProjectTitle = async (projectId: string, newTitle: string) => {
     const trimmed = newTitle.trim()
     if (!trimmed) {
@@ -136,16 +133,14 @@ function App() {
       return
     }
 
-    // Update UI instantly — setProjects is now available!
     setProjects(prev =>
       prev.map(p => (p.id === projectId ? { ...p, title: trimmed } : p))
     )
     if (currentProject?.id === projectId) {
-      setCurrentProject({ ...currentProject, title: trimmed })
+      setCurrentProject({ ...currentProject, title:eab trimmed })
     }
   }
 
-  // Send message
   const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
     if (!settings.apiKey) {
       setError('Set API key in Settings')
@@ -219,7 +214,7 @@ function App() {
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       {/* HEADER */}
       {!isSettingsPage && (
-        <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3">
+        <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -241,13 +236,17 @@ function App() {
         </header>
       )}
 
-      {/* MAIN */}
+      {/* MAIN LAYOUT – THIS IS THE KEY FIX */}
       <div className="flex flex-1 overflow-hidden">
-        {/* SIDEBAR */}
+        {/* SIDEBAR – Now slides OVER content on mobile, never overlaps */}
         <div
-          className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 transition-transform duration-200`}
+          className={`
+            fixed md:relative 
+            inset-y-0 left-0 z-40 
+            w-64 bg-white border-r border-gray-200 
+            transform transition-transform duration-200 ease-in-out
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          `}
         >
           <div className="flex h-full">
             <ProjectsList
@@ -269,15 +268,16 @@ function App() {
           </div>
         </div>
 
+        {/* Mobile overlay */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
-        {/* CHAT */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* MAIN CONTENT – Now has proper left margin on mobile when sidebar is open */}
+        <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
           {!isSettingsPage && (
             <div className="border-b bg-white px-4 py-2">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -345,7 +345,7 @@ function App() {
 
       {/* ALERTS */}
       {!isSettingsPage && !hasApiKey && (
-        <div className="bg-yellow-50 border-t border-yellow-200 px-4 py-3">
+        <div className="bg-yellow-50 border-t border-yellow-200 px-4 py-3 z-50">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
             <p className="text-sm">Add API key in Settings</p>
@@ -357,7 +357,7 @@ function App() {
       )}
 
       {!isSettingsPage && error && (
-        <div className="bg-red-50 border-t border-red-200 px-4 py-3">
+        <div className="bg-red-50 border-t border-red-200 px-4 py-3 z-50">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-red-800">
             <AlertCircle size={20} />
             <p className="text-sm">{error}</p>
