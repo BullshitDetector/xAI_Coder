@@ -42,7 +42,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'instructions' | 'files' | 'history'>('instructions')
   const [instructions, setInstructions] = useState('')
 
-  // DELETE MODAL – NOW USING ID ONLY (BULLETPROOF)
+  // DELETE MODAL – BULLETPROOF ID + TITLE
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectIdToDelete, setProjectIdToDelete] = useState<string | null>(null)
   const [projectTitleToDelete, setProjectTitleToDelete] = useState<string>('')
@@ -97,15 +97,50 @@ function App() {
     init()
   }, [])
 
+  // FIXED: Proper Supabase query for project config
   const openConfig = async (project: any) => {
     setConfigProject(project)
     setActiveTab('instructions')
-    const { data } = await supabase
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('instructions')
+        .eq('id', project.id)
+        .single()
+
+      if (error) {
+        console.error('Failed to load instructions:', error)
+        setInstructions('')
+        setError('Could not load project settings')
+      } else {
+        setInstructions(data?.instructions || '')
+      }
+    } catch (err) {
+      console.error('Unexpected error loading config:', err)
+      setInstructions('')
+      setError('Failed to load project')
+    }
+  }
+
+  // FIXED: Proper save with error handling
+  const saveInstructions = async () => {
+    if (!configProject) return
+
+    const { error } = await supabase
       .from('projects')
-      .select('instructions')
-      .eq('id', project.id)
-      .single()
-    setInstructions(data?.instructions || '')
+      .update({ 
+        instructions, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', configProject.id)
+
+    if (error) {
+      console.error('Save failed:', error)
+      setError('Could not save instructions')
+    } else {
+      setError(null)
+    }
   }
 
   const handleSelectProject = (id: string) => {
@@ -132,7 +167,7 @@ function App() {
     }
   }
 
-  // OPEN MODAL – STORE ID + TITLE ONLY
+  // OPEN DELETE MODAL
   const openDeleteModal = (project: { id: string; title: string }) => {
     setProjectIdToDelete(project.id)
     setProjectTitleToDelete(project.title)
@@ -183,7 +218,7 @@ function App() {
       }
       setConfigProject(null)
 
-      // SUCCESS → CLEAR
+      // SUCCESS
       setProjectIdToDelete(null)
       setProjectTitleToDelete('')
       setDeleteModalOpen(false)
@@ -451,11 +486,57 @@ function App() {
         </div>
       </div>
 
+      {/* CONFIG PANEL */}
+      {configProject && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfigProject(null)} />
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{configProject.title}</h2>
+                <p className="text-sm text-gray- Universities">Project Configuration</p>
+              </div>
+              <button onClick={() => setConfigProject(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  System Instructions
+                </label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  rows={12}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  placeholder="Enter instructions for this project (optional)..."
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfigProject(null)}
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveInstructions}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Save Instructions
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DELETE MODAL */}
       {deleteModalOpen && projectIdToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteModalOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-in fade-in zoom-in-95">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
                 <Trash2 size={32} className="text-red-600" />
@@ -478,13 +559,13 @@ function App() {
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setDeleteModalOpen(false)}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDelete}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                 >
                   Delete Everything
                 </button>
