@@ -42,7 +42,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'instructions' | 'files' | 'history'>('instructions')
   const [instructions, setInstructions] = useState('')
 
-  // DELETE MODAL STATE – NOW SAFE
+  // DELETE MODAL STATE – SAFE
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<any>(null)
 
@@ -139,13 +139,11 @@ function App() {
     }
   }
 
-  // OPEN DELETE MODAL – NOW CLONES PROJECT SAFELY
   const openDeleteModal = (project: any) => {
-    setProjectToDelete({ ...project }) // ← CRITICAL FIX: Clone object
+    setProjectToDelete({ ...project })
     setDeleteModalOpen(true)
   }
 
-  // CONFIRM DELETE – NOW 100% RELIABLE
   const confirmDelete = async () => {
     if (!projectToDelete?.id) {
       setError('Invalid project')
@@ -156,17 +154,14 @@ function App() {
     const projectId = projectToDelete.id
 
     try {
-      // 1. Delete files from storage
+      // 1. Delete files
       const { data: files } = await supabase.storage
         .from('project-files')
         .list(`project_${projectId}`)
 
       if (files && files.length > 0) {
         const filePaths = files.map(f => `project_${projectId}/${f.name}`)
-        const { error: storageError } = await supabase.storage
-          .from('project-files')
-          .remove(filePaths)
-        if (storageError) console.warn('Storage cleanup failed:', storageError)
+        await supabase.storage.from('project-files').remove(filePaths)
       }
 
       // 2. Delete conversations
@@ -176,10 +171,7 @@ function App() {
         .eq('project_id', projectId)
 
       if (convs && convs.length > 0) {
-        await supabase
-          .from('conversations')
-          .delete()
-          .in('id', convs.map(c => c.id))
+        await supabase.from('conversations').delete().in('id', convs.map(c => c.id))
       }
 
       // 3. Delete project
@@ -307,9 +299,31 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* ... HEADER & LAYOUT (unchanged) ... */}
+      {/* HEADER */}
+      {!isSettingsPage && (
+        <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+              <span className="text-white font-bold text-xl">G</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Grok Chat</h1>
+              <p className="text-sm text-gray-500">Powered by xAI</p>
+            </div>
+          </div>
+          <Link to="/settings" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <SettingsIcon size={24} className="text-gray-600" />
+          </Link>
+        </header>
+      )}
 
-      {/* MAIN LAYOUT */}
+      {/* MAIN LAYOUT – FIXED: All divs properly closed */}
       <div className="flex flex-1 relative overflow-hidden">
         {/* SIDEBAR */}
         <aside className={`
@@ -355,58 +369,41 @@ function App() {
           </div>
         </aside>
 
-        {/* ... rest of layout ... */}
-
-        {/* DELETE CONFIRMATION MODAL */}
-        {deleteModalOpen && projectToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteModalOpen(false)} />
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-in fade-in zoom-in-95">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-                  <Trash2 size={32} className="text-red-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                  Permanently delete "{projectToDelete.title}"?
-                </h3>
-                <p className="text-gray-600 mb-8">
-                  This will delete:
-                  <br />
-                  <strong>• The project</strong>
-                  <br />
-                  <strong>• All conversations</strong>
-                  <br />
-                  <strong>• All uploaded files</strong>
-                  <br />
-                  <br />
-                  This action <strong>cannot be undone</strong>.
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={() => {
-                      setDeleteModalOpen(false)
-                      setProjectToDelete(null)
-                    }}
-                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
-                  >
-                    Delete Everything
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Mobile overlay */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
-      </div>
 
-      {/* ... alerts & modals ... */}
-    </div>
-  )
-}
+        {/* MAIN CONTENT – NOW VISIBLE AGAIN */}
+        <div className="flex-1 flex flex-col relative">
+          {/* Chat header */}
+          {!isSettingsPage && (
+            <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {currentConv?.title || 'New Conversation'}
+              </h2>
+              {currentProject && (
+                <button
+                  onClick={() => openConfig(currentProject)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <SettingsIcon size={20} className="text-gray-600" />
+                </button>
+              )}
+            </div>
+          )}
 
-export default App
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    messages.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-center">
+                        <div className="space-y-4">
+                          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
