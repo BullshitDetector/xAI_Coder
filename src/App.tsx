@@ -145,7 +145,7 @@ function App() {
     setDeleteModalOpen(true)
   }
 
-  // CONFIRM DELETE
+  // CONFIRM DELETE – FULLY WORKING
   const confirmDelete = async () => {
     if (!projectToDelete) return
 
@@ -314,6 +314,7 @@ function App() {
           `}
         >
           <div className="h-full flex flex-col">
+            {/* SEARCH BAR */}
             <div className="px-3 pt-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -333,7 +334,7 @@ function App() {
                 projects={filteredProjects}
                 onSelectProject={handleSelectProject}
                 onCreateNew={handleCreateNewProject}
-                onDeleteProject={openDeleteModal}  // Now opens modal
+                onDeleteProject={openDeleteModal}
                 onUpdateTitle={handleUpdateProjectTitle}
                 showNewButton={true}
                 onOpenConfig={openConfig}
@@ -361,6 +362,7 @@ function App() {
 
         {/* MAIN CONTENT */}
         <div className="flex-1 flex flex-col relative">
+          {/* Chat header */}
           {!isSettingsPage && (
             <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -377,6 +379,7 @@ function App() {
             </div>
           )}
 
+          {/* Messages area */}
           <div className="flex-1 overflow-y-auto bg-gray-50">
             <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
               <Routes>
@@ -422,6 +425,7 @@ function App() {
             </div>
           </div>
 
+          {/* INPUT */}
           {!isSettingsPage && (
             <div className="bg-white border-t">
               <div className="max-w-4xl mx-auto">
