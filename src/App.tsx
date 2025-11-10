@@ -15,7 +15,7 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import 'highlight.js/styles/vs2015.css' // Dark theme - change to 'github' for light a light theme
+import 'highlight.js/styles/vs2015.css'
 
 import { Message, FileAttachment } from './types'
 import { useSettings } from './hooks/useSettings'
@@ -28,42 +28,27 @@ import { SettingsPage } from './components/SettingsPage'
 import { useLocation, useNavigate, Routes, Route, Link } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 
-// CUSTOM MARKDOWN VIEWER COMPONENT
+// MARKDOWN VIEWER
 const MarkdownViewer = ({ children }: { children: string }) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
-      className="prose prose-sm max-w-none dark:prose-invert"
+      className="prose prose-sm max-w-none"
       components={{
-        code({ node, inline, className, children, ...props }) {
+        code({ inline, className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '')
           return !inline && match ? (
             <pre className="rounded-lg overflow-x-auto bg-gray-900 p-4 my-4">
               <code className={`language-${match[1]} text-xs`} {...props}>
-                {children}
+                {String(children).replace(/\n$/, '')}
               </code>
             </pre>
           ) : (
-            <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono" {...props}>
+            <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono" {...props}>
               {children}
             </code>
           )
-        },
-        table({ children }) {
-          return (
-            <div className="overflow-x-auto my-4">
-              <table className="min-w-full divide-y divide-gray-300 border border-gray-300 rounded-lg">
-                {children}
-              </table>
-            </div>
-          )
-        },
-        th({ children }) {
-          return <th className="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">{children}</th>
-        },
-        td({ children }) {
-          return <td className="px-4 py-2 text-sm text-gray-900 border-t">{children}</td>
         },
       }}
     >
@@ -72,7 +57,7 @@ const MarkdownViewer = ({ children }: { children: string }) => {
   )
 }
 
-// CHAT MESSAGE COMPONENT WITH MARKDOWN
+// CHAT MESSAGE WITH MARKDOWN
 const ChatMessage = ({ message }: { message: Message }) => {
   const isUser = message.role === 'user'
 
@@ -278,7 +263,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* HEADER & SIDEBAR - unchanged */}
+      {/* HEADER */}
       {!isSettingsPage && (
         <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
           <div className="flex items-center gap-3">
@@ -404,7 +389,7 @@ function App() {
         </div>
       </div>
 
-      {/* CONFIG PANEL + FILE UPLOAD */}
+      {/* CONFIG PANEL */}
       {configProject && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfigProject(null)} />
