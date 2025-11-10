@@ -107,6 +107,11 @@ function App() {
     }
   };
 
+  const handleUpdateProjectTitle = (projectId: string, newTitle: string) => {
+    // Implement API call to update project title
+    console.log('Update project title:', projectId, newTitle); // Placeholder
+  };
+
   const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
     if (!settings.apiKey) {
       setError('Please configure your API key in settings');
@@ -130,7 +135,7 @@ function App() {
       await addMessage(userMessage);
     } catch (err) {
       console.error('Failed to add user message:', err);
-      setError('Failed to add user message');
+      setError('Failed to send message');
       return;
     }
 
@@ -319,7 +324,7 @@ function App() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {!isSettingsPage && (
             <div className="border-b border-gray-200 bg-white">
-              <div className="max-w-4xl mx-auto px-4 py-4">
+              <div className="max-w-4xl mx-auto px-4 py-2">
                 <h2 className="text-lg font-semibold text-gray-900">
                   {currentConv?.title || 'New Conversation'}
                 </h2>
