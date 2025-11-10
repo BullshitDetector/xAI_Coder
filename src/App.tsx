@@ -42,7 +42,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'instructions' | 'files' | 'history'>('instructions')
   const [instructions, setInstructions] = useState('')
 
-  // DELETE MODAL – BULLETPROOF ID + TITLE
+  // DELETE MODAL
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectIdToDelete, setProjectIdToDelete] = useState<string | null>(null)
   const [projectTitleToDelete, setProjectTitleToDelete] = useState<string>('')
@@ -97,7 +97,7 @@ function App() {
     init()
   }, [])
 
-  // FIXED: Proper Supabase query for project config
+  // FIXED: Load project instructions
   const openConfig = async (project: any) => {
     setConfigProject(project)
     setActiveTab('instructions')
@@ -109,21 +109,16 @@ function App() {
         .eq('id', project.id)
         .single()
 
-      if (error) {
-        console.error('Failed to load instructions:', error)
-        setInstructions('')
-        setError('Could not load project settings')
-      } else {
-        setInstructions(data?.instructions || '')
-      }
-    } catch (err) {
-      console.error('Unexpected error loading config:', err)
+      if (error) throw error
+      setInstructions(data?.instructions || '')
+    } catch (err: any) {
+      console.error('Load failed:', err)
       setInstructions('')
-      setError('Failed to load project')
+      setError('Could not load project settings')
     }
   }
 
-  // FIXED: Proper save with error handling
+  // FIXED: Save instructions
   const saveInstructions = async () => {
     if (!configProject) return
 
@@ -136,8 +131,7 @@ function App() {
       .eq('id', configProject.id)
 
     if (error) {
-      console.error('Save failed:', error)
-      setError('Could not save instructions')
+      setError('Save failed')
     } else {
       setError(null)
     }
@@ -167,50 +161,36 @@ function App() {
     }
   }
 
-  // OPEN DELETE MODAL
   const openDeleteModal = (project: { id: string; title: string }) => {
     setProjectIdToDelete(project.id)
     setProjectTitleToDelete(project.title)
     setDeleteModalOpen(true)
   }
 
-  // CONFIRM DELETE – 100% RELIABLE
   const confirmDelete = async () => {
-    if (!projectIdToDelete) {
-      setError('No project selected')
-      return
-    }
+    if (!projectIdToDelete) return
 
     try {
-      // 1. Delete files
       const { data: files } = await supabase.storage
         .from('project-files')
         .list(`project_${projectIdToDelete}`)
 
-      if (files && files.length > 0) {
-        const filePaths = files.map(f => `project_${projectIdToDelete}/${f.name}`)
-        await supabase.storage.from('project-files').remove(filePaths)
+      if (files?.length) {
+        const paths = files.map(f => `project_${projectIdToDelete}/${f.name}`)
+        await supabase.storage.from('project-files').remove(paths)
       }
 
-      // 2. Delete conversations
       const { data: convs } = await supabase
         .from('conversations')
         .select('id')
         .eq('project_id', projectIdToDelete)
 
-      if (convs && convs.length > 0) {
+      if (convs?.length) {
         await supabase.from('conversations').delete().in('id', convs.map(c => c.id))
       }
 
-      // 3. Delete project
-      const { error: deleteError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectIdToDelete)
+      await supabase.from('projects').delete().eq('id', projectIdToDelete)
 
-      if (deleteError) throw deleteError
-
-      // 4. Update UI
       setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
       if (currentProject?.id === projectIdToDelete) {
         setCurrentProject(null)
@@ -218,20 +198,18 @@ function App() {
       }
       setConfigProject(null)
 
-      // SUCCESS
       setProjectIdToDelete(null)
       setProjectTitleToDelete('')
       setDeleteModalOpen(false)
     } catch (err: any) {
-      console.error('Delete failed:', err)
-      setError(err.message || 'Failed to delete project')
+      setError(err.message || 'Delete failed')
     }
   }
 
   const handleUpdateProjectTitle = async (projectId: string, newTitle: string) => {
     const trimmed = newTitle.trim()
     if (!trimmed) {
-      setError('Project name cannot be empty')
+      setError('Name cannot be empty')
       return
     }
 
@@ -241,20 +219,13 @@ function App() {
       .eq('id', projectId)
 
     if (error) {
-      console.error('Rename failed:', error)
-      setError('Could not rename project')
+      setError('Rename failed')
       return
     }
 
-    setProjects(prev =>
-      prev.map(p => (p.id === projectId ? { ...p, title: trimmed } : p))
-    )
-    if (currentProject?.id === projectId) {
-      setCurrentProject({ ...currentProject, title: trimmed })
-    }
-    if (configProject?.id === projectId) {
-      setConfigProject({ ...configProject, title: trimmed })
-    }
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, title: trimmed } : p))
+    if (currentProject?.id === projectId) setCurrentProject({ ...currentProject, title: trimmed })
+    if (configProject?.id === projectId) setConfigProject({ ...configProject, title: trimmed })
   }
 
   const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
@@ -275,13 +246,7 @@ function App() {
       attachments,
     }
 
-    try {
-      await addMessage(userMsg)
-    } catch {
-      setError('Failed to save')
-      return
-    }
-
+    await addMessage(userMsg)
     setIsLoading(true)
     setError(null)
 
@@ -399,12 +364,8 @@ function App() {
           </div>
         </aside>
 
-        {/* Mobile overlay */}
         {isSidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/60 z-40 md:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setIsSidebarOpen(false)} />
         )}
 
         {/* MAIN CONTENT */}
@@ -415,10 +376,7 @@ function App() {
                 {currentConv?.title || 'New Conversation'}
               </h2>
               {currentProject && (
-                <button
-                  onClick={() => openConfig(currentProject)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
+                <button onClick={() => openConfig(currentProject)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <SettingsIcon size={20} className="text-gray-600" />
                 </button>
               )}
@@ -428,43 +386,40 @@ function App() {
           <div className="flex-1 overflow-y-auto bg-gray-50">
             <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
               <Routes>
-                <Route
-                  path="/"
-                  element={
-                    messages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center text-center">
-                        <div className="space-y-4">
-                          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-4xl">G</span>
-                          </div>
-                          <h2 className="text-2xl font-bold">Start a conversation</h2>
-                          <p className="text-gray-500">Ask me anything!</p>
+                <Route path="/" element={
+                  messages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-center">
+                      <div className="space-y-4">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+                          <span className="text-white font-bold text-4xl">G</span>
                         </div>
+                        <h2 className="text-2xl font-bold">Start a conversation</h2>
+                        <p className="text-gray-500">Ask me anything!</p>
                       </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {messages.map((m, i) => (
-                          <ChatMessage key={m.id || i} message={m} />
-                        ))}
-                        {isLoading && (
-                          <div className="flex gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                              <Loader2 className="w-5 h-5 text-white animate-spin" />
-                            </div>
-                            <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                              <div className="flex gap-1">
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300" />
-                              </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {messages.map((m, i) => (
+                        <ChatMessage key={m.id || i} message={m} />
+                      ))}
+                      {isLoading && (
+                        <div className="flex gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 text-white animate-spin" />
+                          </div>
+                          <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                            <div className="flex gap-1">
+                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300" />
                             </div>
                           </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                      </div>
-                    )
-                  }
-                />
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  )
+                } />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </div>
@@ -486,34 +441,88 @@ function App() {
         </div>
       </div>
 
-      {/* CONFIG PANEL */}
+      {/* CONFIG PANEL – NOW WITH TABS */}
       {configProject && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfigProject(null)} />
-          <div className="relative w-full max-w-2xl bg-white shadow-2xl">
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl flex flex-col">
             <div className="flex items-center justify-between p-6 border-b">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">{configProject.title}</h2>
-                <p className="text-sm text-gray- Universities">Project Configuration</p>
+                <p className="text-sm text-gray-500">Project Configuration</p>
               </div>
               <button onClick={() => setConfigProject(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  System Instructions
-                </label>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  rows={12}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Enter instructions for this project (optional)..."
-                />
-              </div>
-              <div className="flex justify-end gap-3">
+
+            {/* TABS */}
+            <div className="flex border-b">
+              <button
+                onClick={() => setActiveTab('instructions')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'instructions'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Instructions
+              </button>
+              <button
+                onClick={() => setActiveTab('files')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'files'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Files
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'history'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                History
+              </button>
+            </div>
+
+            {/* TAB CONTENT */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {activeTab === 'instructions' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    System Instructions
+                  </label>
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    rows={15}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                    placeholder="You are a helpful assistant that..."
+                  />
+                </div>
+              )}
+              {activeTab === 'files' && (
+                <div className="text-center py-12 text-gray-500">
+                  <Upload size={48} className="mx-auto mb-4 text-gray-300" />
+                  <p>File upload coming soon</p>
+                </div>
+              )}
+              {activeTab === 'history' && (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText size={48} className="mx-auto mb-4 text-gray-300" />
+                  <p>Version history coming soon</p>
+                </div>
+              )}
+            </div>
+
+            {/* ACTIONS */}
+            {activeTab === 'instructions' && (
+              <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
                 <button
                   onClick={() => setConfigProject(null)}
                   className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
@@ -527,7 +536,7 @@ function App() {
                   Save Instructions
                 </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -542,31 +551,16 @@ function App() {
                 <Trash2 size={32} className="text-red-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                Permanently delete "{projectTitleToDelete}"?
+                Delete "{projectTitleToDelete}"?
               </h3>
               <p className="text-gray-600 mb-8">
-                This will delete:
-                <br />
-                <strong>• The project</strong>
-                <br />
-                <strong>• All conversations</strong>
-                <br />
-                <strong>• All uploaded files</strong>
-                <br />
-                <br />
-                This action <strong>cannot be undone</strong>.
+                This will delete everything permanently.
               </p>
               <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => setDeleteModalOpen(false)}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
-                >
+                <button onClick={() => setDeleteModalOpen(false)} className="px-6 py-3 bg-gray-100 rounded-lg">
                   Cancel
                 </button>
-                <button
-                  onClick={confirmDelete}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-                >
+                <button onClick={confirmDelete} className="px-6 py-3 bg-red-600 text-white rounded-lg">
                   Delete Everything
                 </button>
               </div>
@@ -580,8 +574,8 @@ function App() {
         <div className="fixed bottom-24 left-4 right-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 z-50 shadow-lg">
           <div className="flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
-            <p className="text-sm font-medium">Add your API key in Settings to start chatting</p>
-            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm font-medium">
+            <p className="text-sm font-medium">Add your API key in Settings</p>
+            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm">
               Settings
             </button>
           </div>
@@ -593,7 +587,7 @@ function App() {
           <div className="flex items-center gap-3 text-red-800">
             <AlertCircle size={20} />
             <p className="text-sm font-medium">{error}</p>
-            <button onClick={() => setError(null)} className="ml-auto text-sm font-medium">
+            <button onClick={() => setError(null)} className="ml-auto text-sm">
               Dismiss
             </button>
           </div>
