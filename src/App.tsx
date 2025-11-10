@@ -42,7 +42,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<'instructions' | 'files' | 'history'>('instructions')
   const [instructions, setInstructions] = useState('')
 
-  // DELETE MODAL
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectIdToDelete, setProjectIdToDelete] = useState<string | null>(null)
   const [projectTitleToDelete, setProjectTitleToDelete] = useState<string>('')
@@ -97,41 +96,46 @@ function App() {
     init()
   }, [])
 
-  // FIXED: Load project instructions
+  // FIXED: Safe load with fallback
   const openConfig = async (project: any) => {
     setConfigProject(project)
     setActiveTab('instructions')
+    setInstructions('')
 
     try {
       const { data, error } = await supabase
         .from('projects')
         .select('instructions')
         .eq('id', project.id)
-        .single()
+        .maybeSingle()  // ← THIS IS THE KEY
 
-      if (error) throw error
+      if (error && error.code !== 'PGRST116') {  // PGRST116 = no rows
+        console.error('Load error:', error)
+        setError('Failed to load project')
+        return
+      }
+
       setInstructions(data?.instructions || '')
-    } catch (err: any) {
-      console.error('Load failed:', err)
+    } catch (err) {
+      console.error('Unexpected error:', err)
       setInstructions('')
-      setError('Could not load project settings')
     }
   }
 
-  // FIXED: Save instructions
   const saveInstructions = async () => {
     if (!configProject) return
 
     const { error } = await supabase
       .from('projects')
       .update({ 
-        instructions, 
-        updated_at: new Date().toISOString() 
+        instructions,
+        updated_at: new Date().toISOString()
       })
       .eq('id', configProject.id)
 
     if (error) {
-      setError('Save failed')
+      console.error('Save failed:', error)
+      setError('Could not save instructions')
     } else {
       setError(null)
     }
@@ -171,25 +175,28 @@ function App() {
     if (!projectIdToDelete) return
 
     try {
+      // Delete files
       const { data: files } = await supabase.storage
         .from('project-files')
         .list(`project_${projectIdToDelete}`)
 
       if (files?.length) {
-        const paths = files.map(f => `project_${projectIdToDelete}/${f.name}`)
-        await supabase.storage.from('project-files').remove(paths)
+        await supabase.storage
+          .from('project-files')
+          .remove(files.map(f => `project_${projectIdToDelete}/${f.name}`))
       }
 
-      const { data: convs } = await supabase
+      // Delete conversations
+      await supabase
         .from('conversations')
-        .select('id')
+        .delete()
         .eq('project_id', projectIdToDelete)
 
-      if (convs?.length) {
-        await supabase.from('conversations').delete().in('id', convs.map(c => c.id))
-      }
-
-      await supabase.from('projects').delete().eq('id', projectIdToDelete)
+      // Delete project
+      await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectIdToDelete)
 
       setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
       if (currentProject?.id === projectIdToDelete) {
@@ -208,20 +215,14 @@ function App() {
 
   const handleUpdateProjectTitle = async (projectId: string, newTitle: string) => {
     const trimmed = newTitle.trim()
-    if (!trimmed) {
-      setError('Name cannot be empty')
-      return
-    }
+    if (!trimmed) return setError('Name required')
 
     const { error } = await supabase
       .from('projects')
       .update({ title: trimmed, updated_at: new Date().toISOString() })
       .eq('id', projectId)
 
-    if (error) {
-      setError('Rename failed')
-      return
-    }
+    if (error) return setError('Rename failed')
 
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, title: trimmed } : p))
     if (currentProject?.id === projectId) setCurrentProject({ ...currentProject, title: trimmed })
@@ -234,19 +235,9 @@ function App() {
       navigate('/settings')
       return
     }
-    if (!currentConv) {
-      setError('No conversation selected')
-      return
-    }
+    if (!currentConv) return setError('No conversation')
 
-    const userMsg: Omit<Message, 'id'> = {
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-      attachments,
-    }
-
-    await addMessage(userMsg)
+    await addMessage({ role: 'user', content, timestamp: Date.now(), attachments })
     setIsLoading(true)
     setError(null)
 
@@ -320,10 +311,8 @@ function App() {
 
       {/* MAIN LAYOUT */}
       <div className="flex flex-1 relative overflow-hidden">
-        {/* SIDEBAR */}
         <aside className={`
-          fixed md:static inset-0 w-64 bg-white border-r border-gray-200
-          z-50 transform transition-transform duration-300 ease-in-out
+          fixed md:static inset-0 w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
           <div className="h-full flex flex-col">
@@ -332,14 +321,13 @@ function App() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search projects & conversations..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 text-sm bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full pl-10 pr-3 py-2 text-sm bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-
             <div className="flex-1 overflow-y-auto">
               <ProjectsList
                 currentProjectId={currentProjectId}
@@ -358,7 +346,7 @@ function App() {
                 onCreateNew={handleCreateNewConv}
                 onDeleteConv={handleDeleteConv}
                 onUpdateTitle={handleUpdateTitle}
-                currentProjectName={currentProject?.title || 'Default Project'}
+                currentProjectName={currentProject?.title || 'Default'}
               />
             </div>
           </div>
@@ -368,7 +356,6 @@ function App() {
           <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setIsSidebarOpen(false)} />
         )}
 
-        {/* MAIN CONTENT */}
         <div className="flex-1 flex flex-col relative">
           {!isSettingsPage && (
             <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
@@ -441,7 +428,7 @@ function App() {
         </div>
       </div>
 
-      {/* CONFIG PANEL – NOW WITH TABS */}
+      {/* CONFIG PANEL */}
       {configProject && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfigProject(null)} />
@@ -456,7 +443,6 @@ function App() {
               </button>
             </div>
 
-            {/* TABS */}
             <div className="flex border-b">
               <button
                 onClick={() => setActiveTab('instructions')}
@@ -478,19 +464,8 @@ function App() {
               >
                 Files
               </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`px-6 py-3 font-medium transition-colors ${
-                  activeTab === 'history'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                History
-              </button>
             </div>
 
-            {/* TAB CONTENT */}
             <div className="flex-1 p-6 overflow-y-auto">
               {activeTab === 'instructions' && (
                 <div>
@@ -501,8 +476,8 @@ function App() {
                     value={instructions}
                     onChange={(e) => setInstructions(e.target.value)}
                     rows={15}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
-                    placeholder="You are a helpful assistant that..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                    placeholder="You are a senior full-stack engineer..."
                   />
                 </div>
               )}
@@ -512,15 +487,8 @@ function App() {
                   <p>File upload coming soon</p>
                 </div>
               )}
-              {activeTab === 'history' && (
-                <div className="text-center py-12 text-gray-500">
-                  <FileText size={48} className="mx-auto mb-4 text-gray-300" />
-                  <p>Version history coming soon</p>
-                </div>
-              )}
             </div>
 
-            {/* ACTIONS */}
             {activeTab === 'instructions' && (
               <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
                 <button
@@ -533,7 +501,7 @@ function App() {
                   onClick={saveInstructions}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 >
-                  Save Instructions
+                  Save
                 </button>
               </div>
             )}
@@ -554,7 +522,7 @@ function App() {
                 Delete "{projectTitleToDelete}"?
               </h3>
               <p className="text-gray-600 mb-8">
-                This will delete everything permanently.
+                This permanently deletes the project, all conversations, and files.
               </p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setDeleteModalOpen(false)} className="px-6 py-3 bg-gray-100 rounded-lg">
@@ -576,7 +544,7 @@ function App() {
             <AlertCircle size={20} />
             <p className="text-sm font-medium">Add your API key in Settings</p>
             <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm">
-              Settings
+              Go
             </button>
           </div>
         </div>
