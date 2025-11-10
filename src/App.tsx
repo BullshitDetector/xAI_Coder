@@ -29,16 +29,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  // These two pieces of state control which project/conversation is active
+  // Active project & conversation
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
   const { settings, setSettings, isLoading: isLoadingSettings } = useSettings()
 
-  // Pass the setters into the hook – this is what fixes the ReferenceError
   const {
     messages,
     conversations,
@@ -53,6 +51,9 @@ function App() {
     createProject,
     deleteConversation,
     updateConversationTitle,
+    // We manage projects state here for renaming
+    setProjects,
+    setCurrentProject,
   } = useMessages(currentConvId, currentProjectId, {
     setCurrentProjectId,
     setCurrentConvId,
@@ -61,92 +62,115 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
-
   const isSettingsPage = location.pathname === '/settings'
 
-  // -----------------------------------------------------------------
-  // Anonymous auth (runs once)
-  // -----------------------------------------------------------------
+  // Scroll to bottom
   useEffect(() => {
-    async function initAuth() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // Anonymous auth
+  useEffect(() => {
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        const { error } = await supabase.auth.signInAnonymously()
-        if (error) console.warn('Anonymous auth disabled:', error.message)
+        await supabase.auth.signInAnonymously()
       }
     }
-    initAuth()
+    init()
   }, [])
 
-  // -----------------------------------------------------------------
-  // Scroll to bottom on new messages
-  // -----------------------------------------------------------------
-  const scrollToBottom = () =>
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  useEffect(() => scrollToBottom(), [messages])
-
-  // -----------------------------------------------------------------
-  // Sidebar handlers
-  // -----------------------------------------------------------------
-  const handleSelectProject = (projectId: string) => {
-    setCurrentProjectId(projectId)
+  // Handlers
+  const handleSelectProject = (id: string) => {
+    setCurrentProjectId(id)
     setCurrentConvId(null)
     setIsSidebarOpen(false)
   }
 
-  const handleSelectConv = (convId: string) => {
-    setCurrentConvId(convId)
+  const handleSelectConv = (id: string) => {
+    setCurrentConvId(id)
     setIsSidebarOpen(false)
   }
 
   const handleCreateNewProject = () => createProject()
   const handleCreateNewConv = () => createConversation()
 
-  const handleDeleteConv = (convId: string) => deleteConversation(convId)
+  const handleDeleteConv = (id: string) => deleteConversation(id)
 
-  const handleUpdateTitle = (
-    itemId: string,
-    newTitle: string,
-    isProject: boolean
-  ) => {
+  const handleUpdateTitle = (id: string, title: string, isProject: boolean) => {
     if (isProject) {
-      console.log('TODO: update project title', itemId, newTitle)
+      handleUpdateProjectTitle(id, title)
     } else {
-      updateConversationTitle(itemId, newTitle)
+      updateConversationTitle(id, title)
     }
   }
 
-  const handleDeleteProject = (projectId: string) => {
-    if (
-      confirm(
-        'Delete this project? All conversations will be moved to the default project.'
-      )
-    ) {
-      console.log('TODO: delete project', projectId)
-    }
-  }
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Delete this project and move all conversations to default?')) return
 
-  const handleUpdateProjectTitle = (projectId: string, newTitle: string) => {
-    console.log('TODO: update project title', projectId, newTitle)
-  }
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId)
 
-  // -----------------------------------------------------------------
-  // Send message to Grok
-  // -----------------------------------------------------------------
-  const sendMessage = async (
-    content: string,
-    attachments?: FileAttachment[]
-  ) => {
-    if (!settings.apiKey) {
-      setError('Please configure your API key in Settings')
-      navigate('/settings')
+    if (error) {
+      setError('Failed to delete project')
       return
     }
 
+    // Move conversations to null project_id
+    await supabase
+      .from('conversations')
+      .update({ project_id: null })
+      .eq('project_id', projectId)
+
+    setProjects(prev => prev.filter(p => p.id !== projectId))
+    if (currentProject?.id === projectId) {
+      setCurrentProject(null)
+      setCurrentProjectId(null)
+    }
+  }
+
+  // REAL PROJECT RENAMING (works!)
+  const handleUpdateProjectTitle = async (projectId: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) {
+      setError('Project name cannot be empty')
+      return
+    }
+
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        title: trimmed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', projectId)
+
+    if (error) {
+      console.error('Rename failed:', error)
+      setError('Could not rename project')
+      return
+    }
+
+    // Update UI instantly
+    setProjects(prev =>
+      prev.map(p => (p.id === projectId ? { ...p, title: trimmed } : p))
+    )
+    if (currentProject?.id === projectId) {
+      setCurrentProject({ ...currentProject, title: trimmed })
+    }
+  }
+
+  // Send message to Grok
+  const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
+    if (!settings.apiKey) {
+      setError('Set your API key in Settings first')
+      navigate('/settings')
+      return
+    }
     if (!currentConv) {
-      setError('No active conversation')
+      setError('No conversation selected')
       return
     }
 
@@ -159,7 +183,7 @@ function App() {
 
     try {
       await addMessage(userMsg)
-    } catch (e) {
+    } catch {
       setError('Failed to save message')
       return
     }
@@ -168,48 +192,31 @@ function App() {
     setError(null)
 
     try {
-      const apiUrl = `${settings.baseUrl}/v1/chat/completions`
-      const model =
-        settings.model === 'auto' ? 'grok-2-latest' : settings.model
-
-      const apiMessages = messages.map(m => ({
-        role: m.role,
-        content: m.content,
-      }))
-
-      let finalContent = content
-      // (attachment handling kept simple – you already have it working)
-
-      const payload = {
-        model,
-        messages: [...apiMessages, { role: 'user', content: finalContent }],
-      }
-
-      const res = await fetch(apiUrl, {
+      const res = await fetch(`${settings.baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${settings.apiKey}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          model: settings.model === 'auto' ? 'grok-2-latest' : settings.model,
+          messages: [
+            ...messages.map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content },
+          ],
+        }),
       })
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error?.message || `API error ${res.status}`)
-      }
-
+      if (!res.ok) throw new Error(`API error ${res.status}`)
       const data = await res.json()
-      const assistantMsg: Omit<Message, 'id'> = {
-        role: 'assistant',
-        content:
-          data.choices?.[0]?.message?.content || 'No response from Grok',
-        timestamp: Date.now(),
-      }
 
-      await addMessage(assistantMsg)
+      await addMessage({
+        role: 'assistant',
+        content: data.choices?.[0]?.message?.content || 'No response',
+        timestamp: Date.now(),
+      })
     } catch (e: any) {
-      setError(e.message || 'Failed to send message')
+      setError(e.message || 'Failed to get response')
     } finally {
       setIsLoading(false)
     }
@@ -217,20 +224,14 @@ function App() {
 
   const hasApiKey = Boolean(settings.apiKey)
 
-  // -----------------------------------------------------------------
-  // Loading screen
-  // -----------------------------------------------------------------
   if (isLoadingSettings || isLoadingMessages) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
       </div>
     )
   }
 
-  // -----------------------------------------------------------------
-  // Main UI
-  // -----------------------------------------------------------------
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       {/* HEADER */}
@@ -239,39 +240,31 @@ function App() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Toggle menu"
+              className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
             >
               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
               <span className="text-white font-bold text-xl">G</span>
             </div>
-
             <div>
               <h1 className="text-xl font-bold text-gray-900">Grok Chat</h1>
               <p className="text-sm text-gray-500">Powered by xAI</p>
             </div>
           </div>
-
-          <Link
-            to="/settings"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Settings"
-          >
+          <Link to="/settings" className="p-2 hover:bg-gray-100 rounded-lg">
             <SettingsIcon size={24} className="text-gray-600" />
           </Link>
         </header>
       )}
 
-      {/* MAIN LAYOUT */}
+      {/* MAIN */}
       <div className="flex flex-1 overflow-hidden">
         {/* SIDEBAR */}
         <div
           className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 transition-transform duration-200 ease-in-out`}
+          } md:translate-x-0 transition-transform duration-200`}
         >
           <div className="flex h-full">
             <ProjectsList
@@ -293,7 +286,6 @@ function App() {
           </div>
         </div>
 
-        {/* Mobile overlay */}
         {isSidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -301,15 +293,13 @@ function App() {
           />
         )}
 
-        {/* CHAT AREA */}
+        {/* CHAT */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {!isSettingsPage && (
-            <div className="border-b border-gray-200 bg-white">
-              <div className="max-w-4xl mx-auto px-4 py-2">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {currentConv?.title || 'New Conversation'}
-                </h2>
-              </div>
+            <div className="border-b bg-white px-4 py-2">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {currentConv?.title || 'New Conversation'}
+              </h2>
             </div>
           )}
 
@@ -320,37 +310,26 @@ function App() {
                 <div className="flex-1 overflow-y-auto">
                   <div className="max-w-4xl mx-auto px-4 py-6">
                     {messages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center">
-                        <div className="text-center space-y-4">
+                      <div className="h-full flex items-center justify-center text-center">
+                        <div className="space-y-4">
                           <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-4xl">
-                              G
-                            </span>
+                            <span className="text-white font-bold text-4xl">G</span>
                           </div>
-                          <h2 className="text-2xl font-bold text-gray-900">
-                            Start a conversation
-                          </h2>
-                          <p className="text-gray-500 max-w-md">
-                            Ask me anything! I'm Grok, powered by xAI's
-                            advanced language model.
-                          </p>
+                          <h2 className="text-2xl font-bold">Start a conversation</h2>
+                          <p className="text-gray-500">Ask me anything!</p>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {messages.map((msg, i) => (
-                          <ChatMessage key={msg.id || i} message={msg} />
+                        {messages.map((m, i) => (
+                          <ChatMessage key={m.id || i} message={m} />
                         ))}
-
                         {isLoading && (
-                          <div className="flex gap-3 justify-start">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                              <Loader2
-                                size={20}
-                                className="text-white animate-spin"
-                              />
+                          <div className="flex gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                              <Loader2 className="w-5 h-5 text-white animate-spin" />
                             </div>
-                            <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
+                            <div className="bg-gray-100 rounded-2xl px-4 py-3">
                               <div className="flex gap-1">
                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
@@ -369,7 +348,6 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
 
-          {/* INPUT */}
           {!isSettingsPage && (
             <ChatInput
               onSend={sendMessage}
@@ -382,17 +360,15 @@ function App() {
         </div>
       </div>
 
-      {/* ALERT BANNERS */}
+      {/* ALERTS */}
       {!isSettingsPage && !hasApiKey && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3">
+        <div className="bg-yellow-50 border-t border-yellow-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
-            <p className="text-sm">
-              Please configure your API key in Settings to start chatting.
-            </p>
+            <p className="text-sm">Add your API key in Settings to chat</p>
             <button
               onClick={() => navigate('/settings')}
-              className="ml-auto text-yellow-600 hover:text-yellow-700 font-medium text-sm underline"
+              className="ml-auto underline text-sm font-medium"
             >
               Go to Settings
             </button>
@@ -401,21 +377,17 @@ function App() {
       )}
 
       {!isSettingsPage && error && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+        <div className="bg-red-50 border-t border-red-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-red-800">
             <AlertCircle size={20} />
             <p className="text-sm">{error}</p>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-600 hover:text-red-700 font-medium text-sm"
-            >
+            <button onClick={() => setError(null)} className="ml-auto text-sm">
               Dismiss
             </button>
           </div>
         </div>
       )}
 
-      {/* MODEL SELECTOR MODAL */}
       <ModelSelectorModal
         isOpen={isModelSelectorOpen}
         onClose={() => setIsModelSelectorOpen(false)}
