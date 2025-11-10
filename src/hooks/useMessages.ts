@@ -13,7 +13,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
   const initializedRef = useRef(false)
 
   // Define all functions first to ensure scope for addMessage
-  const loadProjects = async (): Promise<void> => {
+  const loadProjects = async () => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -31,7 +31,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     }
   }
 
-  const loadConversations = async (projectId?: string): Promise<void> => {
+  const loadConversations = async (projectId?: string) => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -55,7 +55,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     }
   }
 
-  const switchProject = async (projectId: string): Promise<void> => {
+  const switchProject = async (projectId: string) => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -76,7 +76,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     setCurrentConv(null)
   }
 
-  const switchConversation = async (convId: string): Promise<void> => {
+  const switchConversation = async (convId: string) => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -96,7 +96,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     await loadMessages(convId)
   }
 
-  const loadMessages = async (convId: string): Promise<void> => {
+  const loadMessages = async (convId: string) => {
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -120,7 +120,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     setIsLoading(false)
   }
 
-  const createProject = async (title: string = 'New Project'): Promise<void> => {
+  const createProject = async (title: string = 'New Project') => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -153,7 +153,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     await switchProject(newProject.id)
   }
 
-  const createConversation = async (title: string = 'New Conversation'): Promise<void> => {
+  const createConversation = async (title: string = 'New Conversation') => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -166,15 +166,15 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
       .single()
 
     if (error) {
-        console.error('Error creating conversation:', error)
-        return
-      }
+      console.error('Error creating conversation:', error)
+      return
+    }
 
-      setConversations([newConv, ...conversations])
-      await switchConversation(newConv.id)
+    setConversations([newConv, ...conversations])
+    await switchConversation(newConv.id)
   }
 
-  const deleteConversation = async (convId: string): Promise<void> => {
+  const deleteConversation = async (convId: string) => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -200,7 +200,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     }
   }
 
-  const updateConversationTitle = async (convId: string, newTitle: string): Promise<void> => {
+  const updateConversationTitle = async (convId: string, newTitle: string) => {
     const userId = userIdRef.current
     if (!userId) return
 
@@ -220,7 +220,7 @@ export function useMessages(currentConvId?: string, currentProjectId?: string) {
     }
   }
 
-  const addMessage = async (message: Omit<Conversation, 'id'>): Promise<void> => {
+  const addMessage = async (message: Omit<Conversation, 'id'>) => {
     const userId = userIdRef.current
     if (!userId) {
       throw new Error('User ID not available. Please refresh.')
