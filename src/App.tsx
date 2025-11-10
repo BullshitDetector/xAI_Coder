@@ -211,11 +211,11 @@ function App() {
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       {/* HEADER */}
       {!isSettingsPage && (
-        <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
+        <header className="relative bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+              className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -227,59 +227,55 @@ function App() {
               <p className="text-sm text-gray-500">Powered by xAI</p>
             </div>
           </div>
-          <Link to="/settings" className="p-2 hover:bg-gray-100 rounded-lg">
+          <Link to="/settings" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <SettingsIcon size={24} className="text-gray-600" />
           </Link>
         </header>
       )}
 
-      {/* MAIN LAYOUT – FULLY VISIBLE CHAT */}
-      <div className="flex flex-1 relative">
-        {/* SIDEBAR – Slides over content on mobile */}
+      {/* MAIN CONTAINER */}
+      <div className="flex flex-1 relative overflow-hidden">
+        {/* SIDEBAR – NOW 100% NON-OVERLAPPING */}
         <aside
           className={`
-            fixed md:static 
-            top-0 left-0 bottom-0 
-            w-64 bg-white border-r border-gray-200 
-            z-40 transform transition-transform duration-300 ease-in-out
-            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-            ${!isSettingsPage ? 'pt-16 md:pt-0' : 'pt-0'}
+            fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200
+            z-50 transform transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            md:translate-x-0 md:static md:z-auto
+            ${!isSettingsPage ? 'pt-16' : 'pt-0'}  /* respect header */
           `}
-          style={{ top: isSettingsPage ? 0 : '4rem' }}
         >
-          <div className="h-full flex flex-col">
-            <div className="flex-1 overflow-y-auto">
-              <ProjectsList
-                currentProjectId={currentProjectId}
-                projects={projects}
-                onSelectProject={handleSelectProject}
-                onCreateNew={handleCreateNewProject}
-                onDeleteProject={handleDeleteProject}
-                onUpdateTitle={handleUpdateProjectTitle}
-              />
-              <ConversationsList
-                currentConvId={currentConvId}
-                conversations={conversations}
-                onSelectConv={handleSelectConv}
-                onCreateNew={handleCreateNewConv}
-                onDeleteConv={handleDeleteConv}
-                onUpdateTitle={handleUpdateTitle}
-              />
-            </div>
+          <div className="h-full flex flex-col overflow-y-auto">
+            <ProjectsList
+              currentProjectId={currentProjectId}
+              projects={projects}
+              onSelectProject={handleSelectProject}
+              onCreateNew={handleCreateNewProject}
+              onDeleteProject={handleDeleteProject}
+              onUpdateTitle={handleUpdateProjectTitle}
+            />
+            <ConversationsList
+              currentConvId={currentConvId}
+              conversations={conversations}
+              onSelectConv={handleSelectConv}
+              onCreateNew={handleCreateNewConv}
+              onDeleteConv={handleDeleteConv}
+              onUpdateTitle={handleUpdateTitle}
+            />
           </div>
         </aside>
 
-        {/* Mobile overlay */}
+        {/* DARK OVERLAY (mobile only) */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
-        {/* MAIN CONTENT – NOW FULLY VISIBLE */}
-        <main className="flex-1 flex flex-col min-w-0">
-          {/* Chat header */}
+        {/* MAIN CHAT AREA – FULLY VISIBLE */}
+        <div className="flex-1 flex flex-col md:ml-0">
+          {/* Chat Title */}
           {!isSettingsPage && (
             <div className="bg-white border-b px-4 py-3">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -288,76 +284,76 @@ function App() {
             </div>
           )}
 
-          {/* Routes */}
-          <div className="flex-1 overflow-hidden">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <div className="h-full overflow-y-auto bg-gray-50">
-                    <div className="max-w-4xl mx-auto px-4 py-6 pb-32">
-                      {messages.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-center">
-                          <div className="space-y-4">
-                            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-                              <span className="text-white font-bold text-4xl">G</span>
-                            </div>
-                            <h2 className="text-2xl font-bold">Start a conversation</h2>
-                            <p className="text-gray-500">Ask me anything!</p>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="max-w-4xl mx-auto px-4 py-6 pb-32">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    messages.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-center">
+                        <div className="space-y-4">
+                          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+                            <span className="text-white font-bold text-4xl">G</span>
                           </div>
+                          <h2 className="text-2xl font-bold">Start a conversation</h2>
+                          <p className="text-gray-500">Ask me anything!</p>
                         </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {messages.map((m, i) => (
-                            <ChatMessage key={m.id || i} message={m} />
-                          ))}
-                          {isLoading && (
-                            <div className="flex gap-3">
-                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                                <Loader2 className="w-5 h-5 text-white animate-spin" />
-                              </div>
-                              <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                                <div className="flex gap-1">
-                                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
-                                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300" />
-                                </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {messages.map((m, i) => (
+                          <ChatMessage key={m.id || i} message={m} />
+                        ))}
+                        {isLoading && (
+                          <div className="flex gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                              <Loader2 className="w-5 h-5 text-white animate-spin" />
+                            </div>
+                            <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                              <div className="flex gap-1">
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300" />
                               </div>
                             </div>
-                          )}
-                          <div ref={messagesEndRef} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                }
-              />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
+                          </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    )
+                  }
+                />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </div>
           </div>
 
-          {/* Input */}
+          {/* Input – pinned to bottom */}
           {!isSettingsPage && (
             <div className="absolute bottom-0 left-0 right-0 bg-white border-t">
-              <ChatInput
-                onSend={sendMessage}
-                disabled={isLoading || !hasApiKey}
-                currentModel={settings.model}
-                onOpenModelSelector={() => setIsModelSelectorOpen(true)}
-                currentProjectId={currentProjectId}
-              />
+              <div className="max-w-4xl mx-auto">
+                <ChatInput
+                  onSend={sendMessage}
+                  disabled={isLoading || !hasApiKey}
+                  currentModel={settings.model}
+                  onOpenModelSelector={() => setIsModelSelectorOpen(true)}
+                  currentProjectId={currentProjectId}
+                />
+              </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
 
       {/* ALERTS */}
       {!isSettingsPage && !hasApiKey && (
-        <div className="fixed bottom-20 left-4 right-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 z-50">
+        <div className="fixed bottom-20 left-4 right-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 z-50 shadow-lg">
           <div className="flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
-            <p className="text-sm">Add API key in Settings</p>
-            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm">
+            <p className="text-sm font-medium">Add your API key in Settings to start chatting</p>
+            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm font-medium">
               Settings
             </button>
           </div>
@@ -365,11 +361,11 @@ function App() {
       )}
 
       {!isSettingsPage && error && (
-        <div className="fixed bottom-20 left-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 z-50">
+        <div className="fixed bottom-20 left-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 z-50 shadow-lg">
           <div className="flex items-center gap-3 text-red-800">
             <AlertCircle size={20} />
-            <p className="text-sm">{error}</p>
-            <button onClick={() => setError(null)} className="ml-auto text-sm">
+            <p className="text-sm font-medium">{error}</p>
+            <button onClick={() => setError(null)} className="ml-auto text-sm font-medium">
               Dismiss
             </button>
           </div>
