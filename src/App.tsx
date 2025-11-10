@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Menu,
   X,
+  Search,
 } from 'lucide-react'
 import { Message, FileAttachment } from './types'
 import { useSettings } from './hooks/useSettings'
@@ -30,6 +31,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('') // ← NEW: Search state
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
@@ -56,6 +58,14 @@ function App() {
     setCurrentProjectId,
     setCurrentConvId,
   })
+
+  // Filter projects & conversations
+  const filteredProjects = projects.filter(p =>
+    p.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const filteredConversations = conversations.filter(c =>
+    c.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
@@ -244,24 +254,41 @@ function App() {
             ${!isSettingsPage ? 'pt-16' : 'pt-0'}
           `}
         >
-          <div className="h-full overflow-y-auto">
-            <ProjectsList
-              currentProjectId={currentProjectId}
-              projects={projects}
-              onSelectProject={handleSelectProject}
-              onCreateNew={handleCreateNewProject}
-              onDeleteProject={handleDeleteProject}
-              onUpdateTitle={handleUpdateProjectTitle}
-            />
-            <ConversationsList
-              currentConvId={currentConvId}
-              conversations={conversations}
-              onSelectConv={handleSelectConv}
-              onCreateNew={handleCreateNewConv}
-              onDeleteConv={handleDeleteConv}
-              onUpdateTitle={handleUpdateTitle}
-              currentProjectName={currentProject?.title || 'Default Project'}
-            />
+          <div className="h-full flex flex-col">
+            {/* SEARCH BAR – NEW! */}
+            <div className="px-3 pt-3 pb-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search projects & conversations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 text-sm bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <ProjectsList
+                currentProjectId={currentProjectId}
+                projects={filteredProjects}
+                onSelectProject={handleSelectProject}
+                onCreateNew={handleCreateNewProject}
+                onDeleteProject={handleDeleteProject}
+                onUpdateTitle={handleUpdateProjectTitle}
+                showNewButton={true}
+              />
+              <ConversationsList
+                currentConvId={currentConvId}
+                conversations={filteredConversations}
+                onSelectConv={handleSelectConv}
+                onCreateNew={handleCreateNewConv}
+                onDeleteConv={handleDeleteConv}
+                onUpdateTitle={handleUpdateTitle}
+                currentProjectName={currentProject?.title || 'Default Project'}
+              />
+            </div>
           </div>
         </aside>
 
