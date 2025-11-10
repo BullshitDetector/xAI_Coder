@@ -1,9 +1,8 @@
 // src/App.tsx
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import {
   Settings as SettingsIcon,
   Loader2,
-  AlertCircle,
   Menu,
   X,
   Search,
@@ -17,7 +16,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/vs2015.css'
 
-import { Message, FileAttachment } from './types'
+import { Message } from './types'
 import { useSettings } from './hooks/useSettings'
 import { useMessages } from './hooks/useMessages'
 import { ModelSelectorModal } from './components/ModelSelectorModal'
@@ -28,7 +27,6 @@ import { SettingsPage } from './components/SettingsPage'
 import { useLocation, useNavigate, Routes, Route, Link } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 
-// MARKDOWN VIEWER
 const MarkdownViewer = ({ children }: { children: string }) => {
   return (
     <ReactMarkdown
@@ -57,7 +55,6 @@ const MarkdownViewer = ({ children }: { children: string }) => {
   )
 }
 
-// CHAT MESSAGE WITH MARKDOWN
 const ChatMessage = ({ message }: { message: Message }) => {
   const isUser = message.role === 'user'
 
@@ -96,7 +93,6 @@ function App() {
   const [projectFiles, setProjectFiles] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectIdToDelete, setProjectIdToDelete] = useState<string | null>(null)
   const [projectTitleToDelete, setProjectTitleToDelete] = useState<string>('')
@@ -124,8 +120,12 @@ function App() {
     setCurrentConvId,
   })
 
-  const filteredProjects = projects.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredConversations = conversations.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredProjects = projects.filter(p => 
+    p.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const filteredConversations = conversations.filter(c => 
+    c.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
@@ -136,83 +136,118 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Prevent extension errors
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.data?.type === 'pageViewId') {
+        e.stopImmediatePropagation()
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) await supabase.auth.signInAnonymously()
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) await supabase.auth.signInAnonymously()
+      } catch (err) {
+        console.warn('Auth init failed (non-critical)', err)
+      }
     }
     init()
   }, [])
 
-  const openConfig = async (project: any) => {
+  const openConfig = useCallback(async (project: any) => {
     setConfigProject(project)
     setActiveTab('instructions')
     setProjectFiles([])
     setInstructions('')
 
-    const { data } = await supabase
-      .from('projects')
-      .select('instructions')
-      .eq('id', project.id)
-      .maybeSingle()
-    setInstructions(data?.instructions || '')
-  }
+    try {
+      const { data } = await supabase
+        .from('projects')
+        .select('instructions')
+        .eq('id', project.id)
+        .single()
+      setInstructions(data?.instructions || '')
+    } catch (err) {
+      console.warn('Failed to load instructions', err)
+    }
+  }, [])
 
-  const loadProjectFiles = async (projectId: string) => {
-    const { data } = await supabase.storage
-      .from('project-files')
-      .list(`project_${projectId}`)
-    setProjectFiles(data || [])
-  }
+  const loadProjectFiles = useCallback(async (projectId: string) => {
+    try {
+      const { data } = await supabase.storage
+        .from('project-files')
+        .list(`project_${projectId}`)
+      setProjectFiles(data || [])
+    } catch (err) {
+      console.warn('Failed to load files', err)
+    }
+  }, [])
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || !configProject) return
     setUploading(true)
-    for (const file of files) {
-      await supabase.storage
-        .from('project-files')
-        .upload(`project_${configProject.id}/${Date.now()}_${file.name}`, file, { upsert: true })
+    try {
+      for (const file of files) {
+        await supabase.storage
+          .from('project-files')
+          .upload(`project_${configProject.id}/${Date.now()}_${file.name}`, file, { upsert: true })
+      }
+      await loadProjectFiles(configProject.id)
+    } catch (err) {
+      setError('Upload failed')
+    } finally {
+      setUploading(false)
     }
-    await loadProjectFiles(configProject.id)
-    setUploading(false)
   }
 
   const deleteFile = async (fileName: string) => {
     if (!configProject) return
-    await supabase.storage.from('project-files').remove([`project_${configProject.id}/${fileName}`])
-    setProjectFiles(prev => prev.filter(f => f.name !== fileName))
+    try {
+      await supabase.storage.from('project-files').remove([`project_${configProject.id}/${fileName}`])
+      setProjectFiles(prev => prev.filter(f => f.name !== fileName))
+    } catch (err) {
+      setError('Delete failed')
+    }
   }
 
   const downloadFile = async (fileName: string) => {
     if (!configProject) return
-    const { data } = await supabase.storage
-      .from('project-files')
-      .download(`project_${configProject.id}/${fileName}`)
-    if (data) {
-      const url = URL.createObjectURL(data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      a.click()
-      URL.revokeObjectURL(url)
+    try {
+      const { data } = await supabase.storage
+        .from('project-files')
+        .download(`project_${configProject.id}/${fileName}`)
+      if (data) {
+        const url = URL.createObjectURL(data)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      setError('Download failed')
     }
   }
 
   const saveInstructions = async () => {
     if (!configProject) return
-    await supabase
-      .from('projects')
-      .update({ instructions, updated_at: new Date().toISOString() })
-      .eq('id', configProject.id)
+    try {
+      await supabase
+        .from('projects')
+        .update({ instructions, updated_at: new Date().toISOString() })
+        .eq('id', configProject.id)
+    } catch (err) {
+      setError('Save failed')
+    }
   }
 
   const sendMessage = async (content: string) => {
-    if (!settings.apiKey) {
-      setError('Set API key in Settings')
-      navigate('/settings')
-      return
-    }
-    if (!currentConv || !content.trim()) return
+    if (!settings.apiKey || !currentConv || !content.trim()) return
 
     await addMessage({ role: 'user', content, timestamp: Date.now() })
     setIsLoading(true)
@@ -469,12 +504,17 @@ function App() {
               <button onClick={() => setDeleteModalOpen(false)} className="px-6 py-3 bg-gray-100 rounded-lg">Cancel</button>
               <button onClick={async () => {
                 if (!projectIdToDelete) return
-                await supabase.storage.from('project-files').remove([`project_${projectIdToDelete}/`])
-                await supabase.from('conversations').delete().eq('project_id', projectIdToDelete)
-                await supabase.from('projects').delete().eq('id', projectIdToDelete)
-                setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
-                setDeleteModalOpen(false)
-                setConfigProject(null)
+                try {
+                  await supabase.storage.from('project-files').remove([`project_${projectIdToDelete}/`])
+                  await supabase.from('conversations').delete().eq('project_id', projectIdToDelete)
+                  await supabase.from('projects').delete().eq('id', projectIdToDelete)
+                  setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
+                } catch (err) {
+                  setError('Delete failed')
+                } finally {
+                  setDeleteModalOpen(false)
+                  setConfigProject(null)
+                }
               }} className="px-6 py-3 bg-red-600 text-white rounded-lg">Delete</button>
             </div>
           </div>
