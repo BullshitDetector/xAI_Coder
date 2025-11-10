@@ -25,7 +25,6 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     const current = get()
     const updated = { ...current, ...newSettings }
 
-    // Save to Supabase
     const { error } = await supabase
       .from('settings')
       .upsert({
@@ -38,10 +37,10 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     }
   },
 
-  // Load on mount
+  // AUTO-LOAD ON START
   init: async () => {
     set({ isLoading: true })
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('settings')
       .select('*')
       .eq('id', 'global')
@@ -56,10 +55,18 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         isLoading: false,
       })
     } else {
+      // Create default row if none exists
+      await supabase.from('settings').insert({
+        id: 'global',
+        apiKey: '',
+        baseUrl: 'https://api.x.ai',
+        model: 'auto',
+        logoUrl: '',
+      })
       set({ isLoading: false })
     }
   },
 }))
 
-// Auto-init
+// CRITICAL: INIT ON LOAD
 useSettings.getState().init()

@@ -129,7 +129,7 @@ function App() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
 
-  const { settings, setSettings, isLoading: isLoadingSettings } = useSettings()
+  const { settings = { apiKey: '', baseUrl: 'https://api.x.ai', model: 'auto', logoUrl: '' }, setSettings, isLoading: isLoadingSettings } = useSettings()
   const {
     messages,
     conversations,
