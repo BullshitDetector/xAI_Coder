@@ -304,5 +304,7 @@ export function useMessages(
     createProject,
     deleteConversation,
     updateConversationTitle,
+    setProjects,
+    setCurrentProject,
   }
 }

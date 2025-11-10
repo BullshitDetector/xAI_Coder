@@ -31,7 +31,6 @@ function App() {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  // Active project & conversation
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
 
@@ -51,7 +50,7 @@ function App() {
     createProject,
     deleteConversation,
     updateConversationTitle,
-    // We manage projects state here for renaming
+    // These were missing — now exposed!
     setProjects,
     setCurrentProject,
   } = useMessages(currentConvId, currentProjectId, {
@@ -64,18 +63,14 @@ function App() {
   const navigate = useNavigate()
   const isSettingsPage = location.pathname === '/settings'
 
-  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Anonymous auth
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        await supabase.auth.signInAnonymously()
-      }
+      if (!session) await supabase.auth.signInAnonymously()
     }
     init()
   }, [])
@@ -94,7 +89,6 @@ function App() {
 
   const handleCreateNewProject = () => createProject()
   const handleCreateNewConv = () => createConversation()
-
   const handleDeleteConv = (id: string) => deleteConversation(id)
 
   const handleUpdateTitle = (id: string, title: string, isProject: boolean) => {
@@ -106,23 +100,15 @@ function App() {
   }
 
   const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Delete this project and move all conversations to default?')) return
+    if (!confirm('Delete project and move conversations to default?')) return
 
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId)
-
+    const { error } = await supabase.from('projects').delete().eq('id', projectId)
     if (error) {
       setError('Failed to delete project')
       return
     }
 
-    // Move conversations to null project_id
-    await supabase
-      .from('conversations')
-      .update({ project_id: null })
-      .eq('project_id', projectId)
+    await supabase.from('conversations').update({ project_id: null }).eq('project_id', projectId)
 
     setProjects(prev => prev.filter(p => p.id !== projectId))
     if (currentProject?.id === projectId) {
@@ -131,7 +117,7 @@ function App() {
     }
   }
 
-  // REAL PROJECT RENAMING (works!)
+  // FULLY WORKING PROJECT RENAME
   const handleUpdateProjectTitle = async (projectId: string, newTitle: string) => {
     const trimmed = newTitle.trim()
     if (!trimmed) {
@@ -141,10 +127,7 @@ function App() {
 
     const { error } = await supabase
       .from('projects')
-      .update({
-        title: trimmed,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ title: trimmed, updated_at: new Date().toISOString() })
       .eq('id', projectId)
 
     if (error) {
@@ -153,7 +136,7 @@ function App() {
       return
     }
 
-    // Update UI instantly
+    // Update UI instantly — setProjects is now available!
     setProjects(prev =>
       prev.map(p => (p.id === projectId ? { ...p, title: trimmed } : p))
     )
@@ -162,10 +145,10 @@ function App() {
     }
   }
 
-  // Send message to Grok
+  // Send message
   const sendMessage = async (content: string, attachments?: FileAttachment[]) => {
     if (!settings.apiKey) {
-      setError('Set your API key in Settings first')
+      setError('Set API key in Settings')
       navigate('/settings')
       return
     }
@@ -184,7 +167,7 @@ function App() {
     try {
       await addMessage(userMsg)
     } catch {
-      setError('Failed to save message')
+      setError('Failed to save')
       return
     }
 
@@ -216,7 +199,7 @@ function App() {
         timestamp: Date.now(),
       })
     } catch (e: any) {
-      setError(e.message || 'Failed to get response')
+      setError(e.message || 'Failed')
     } finally {
       setIsLoading(false)
     }
@@ -365,12 +348,9 @@ function App() {
         <div className="bg-yellow-50 border-t border-yellow-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3 text-yellow-800">
             <AlertCircle size={20} />
-            <p className="text-sm">Add your API key in Settings to chat</p>
-            <button
-              onClick={() => navigate('/settings')}
-              className="ml-auto underline text-sm font-medium"
-            >
-              Go to Settings
+            <p className="text-sm">Add API key in Settings</p>
+            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm">
+              Settings
             </button>
           </div>
         </div>
