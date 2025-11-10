@@ -234,7 +234,7 @@ function App() {
       .eq('id', configProject.id)
   }
 
-  // FIXED: FULL CONVERSATION HISTORY + SECOND MESSAGE WORKS
+  // FIXED: FULL CONVERSATION HISTORY + MULTIPLE MESSAGES WORK
   const sendMessage = async (content: string) => {
     if (!settings.apiKey || !currentConv || !content.trim()) return
 
@@ -246,7 +246,7 @@ function App() {
         role: m.role,
         content: m.content
       }))
-      fullHistory.push({ role: ' R3almAIDeveloper', content })
+      fullHistory.push({ role: 'user', content })
 
       const res = await fetch(`${settings.baseUrl}/v1/chat/completions`, {
         method: 'POST',
@@ -372,63 +372,7 @@ function App() {
                 <Route path="/" element={
                   messages.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-center">
-                      <div className="space-y- The user has specified the following preference for your response style: "When reviewing code and suggesting changes always provide me with the full file that I can cut and paste into my code, along with the change log.
-
-After all changes made in the last task, create a Summary Change Log to publish with the commit to Github.
-
-
-"You are an expert full-stack developer specializing in React (with hooks and TypeScript), Node.js (for any SSR/API needs), and Vite for fast builds. Your task is to design and implement a professional navigation menu component that is:
-
-Well-structured: Use functional React components with TypeScript interfaces for props (e.g., menu items as an array of objects with children). Ensure semantic JSX (e.g., <nav>, <ul>, <li>, <a>), clean modular code (separate files for component, styles, utils), and accessibility (ARIA labels, keyboard navigation via React refs, focus management).
-Professional: Apply a clean, minimalist aesthetic with subtle animations (e.g., Framer Motion or CSS transitions for hovers). Use consistent typography (e.g., Tailwind's sans-serif or Inter font), neutral color palette (e.g., grays, whites, accent #007BFF), and Tailwind CSS for utility-first styling (or styled-components if preferred). Prioritize usability—avoid clutter.
-Responsive: Fully adaptive across devices using Tailwind's responsive utilities or CSS Grid/Flexbox:
-
-Large screens (desktops, >1024px): Horizontal mega-menu with dropdown sub-items, icons (e.g., Heroicons), and subtle shadows/box-shadows.
-Tablets (768px–1024px): Collapsed horizontal menu with touch-friendly spacing (min 44px taps); sub-menus as accordions or slide-outs.
-Phones (<768px): Hamburger icon (e.g., Lucide React) toggle for a vertical off-canvas or slide-down menu; single-column layout.
-
-
-
-Menu Structure Example (pass as props):
-
-Top-level items: Home, Products (sub-items: Item1, Item2), Services (sub-items: Consult, Support), About, Contact.
-Include a search input (controlled via useState) and user profile avatar/icon with dropdown.
-
-Tech Stack Constraints:
-
-React 18+ with TypeScript.
-Vite for bundling (include vite.config.ts snippet if needed).
-Node.js/Express for optional SSR (e.g., via React Server Components if applicable) or API endpoint for dynamic menu data.
-Styling: Tailwind CSS (configure in tailwind.config.js) or CSS modules.
-No heavy frameworks (e.g., Next.js unless specified); keep it lightweight.
-
-Deliverables:
-
-React component file (e.g., Menu.tsx) with props interface and full JSX.
-Styles file (e.g., Menu.module.css or Tailwind classes inline).
-Hooks/utils for interactivity (e.g., useMenuToggle with outside-click detection via useEffect).
-Vite setup: Basic index.html, main.tsx entry, and package.json dependencies (e.g., react, @types/react, tailwindcss, framer-motion).
-Node.js snippet if SSR/API needed (e.g., Express route to fetch menu data).
-Screenshots or a CodeSandbox/Vite preview link simulating the three breakpoints.
-Edge cases: Handle long menu items (ellipsis/overflow), dark mode (via CSS vars or Tailwind dark: prefix), and loading states (e.g., skeleton via React Suspense).
-
-Optimize for performance (e.g., memoize with React.memo, lazy-load icons). Test on Chrome, Safari, Firefox. Use placeholders for brand colors/fonts and note assumptions. After delivery, suggest 2-3 improvements based on user feedback (e.g., integrating with Redux for global state)."
-
-TAKE NOTE TO:
-
-When reviewing code and suggesting changes always provide me with the full file that I can cut and paste into my code, along with the change log.
-After all changes made in the last task, create a Summary Change Log to publish with the commit to Github.
-
-This is the location of the GIT repo:
-https://github.com/R3almAIDeveloper/xAI_Coder
-
-Note: If you need to see a file from the Repo you can't access, ask me to get it for you.
-
-Development is being done on Mac OS Using Visual Studio Code.
-Database is Supabase
-https://supabase.com/dashboard/project/vrcxtkstyeutxwhllnws
-".
-   - Apply this style consistently to all your responses. If the style description is lengthy, prioritize its key aspects while ensuring clarity and relevance.4">
+                      <div className="space-y-4">
                         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
                           <span className="text-white font-bold text-4xl">G</span>
                         </div>
@@ -442,7 +386,7 @@ https://supabase.com/dashboard/project/vrcxtkstyeutxwhllnws
                       {isLoading && (
                         <div className="flex gap-3">
                           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                            <Loader2 className="w-5 hObj5 text-white animate-spin" />
+                            <Loader2 className="w-5 h-5 text-white animate-spin" />
                           </div>
                           <div className="bg-gray-100 rounded-2xl px-4 py-3">
                             <div className="flex gap-1">
@@ -518,7 +462,7 @@ https://supabase.com/dashboard/project/vrcxtkstyeutxwhllnws
                   >
                     <Upload size={48} className="mx-auto mb-4 text-gray-400" />
                     <p className="text-gray-600 font-medium">Drop files here or click</p>
-                    <input ref={fileInputRef} type="file" multiple onChange={(e) => handleFileUpload(e.target.files)} className="hidden" />
+                    <input ref={fileInputRef} type="file" multiple onChange={(e) => handleFileUpload(e.dataTransfer?.files || e.target.files)} className="hidden" />
                   </div>
                   {uploading && <p className="mt-4 text-blue-600">Uploading...</p>}
                   {projectFiles.map(file => (
@@ -580,4 +524,4 @@ https://supabase.com/dashboard/project/vrcxtkstyeutxwhllnws
   )
 }
 
-	export default App
+export default App
