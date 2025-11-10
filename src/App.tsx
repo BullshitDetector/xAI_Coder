@@ -9,22 +9,95 @@ import {
   Search,
   Upload,
   Trash2,
-  Folder,
   Download,
   File,
-  Send,
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/vs2015.css' // Dark theme - change to 'github' for light a light theme
+
 import { Message, FileAttachment } from './types'
 import { useSettings } from './hooks/useSettings'
 import { useMessages } from './hooks/useMessages'
 import { ModelSelectorModal } from './components/ModelSelectorModal'
 import { ProjectsList } from './components/ProjectsList'
 import { ConversationsList } from './components/ConversationsList'
-import { ChatMessage } from './components/ChatMessage'
 import { ChatInput } from './components/ChatInput'
 import { SettingsPage } from './components/SettingsPage'
 import { useLocation, useNavigate, Routes, Route, Link } from 'react-router-dom'
 import { supabase } from './lib/supabase'
+
+// CUSTOM MARKDOWN VIEWER COMPONENT
+const MarkdownViewer = ({ children }: { children: string }) => {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      className="prose prose-sm max-w-none dark:prose-invert"
+      components={{
+        code({ node, inline, className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || '')
+          return !inline && match ? (
+            <pre className="rounded-lg overflow-x-auto bg-gray-900 p-4 my-4">
+              <code className={`language-${match[1]} text-xs`} {...props}>
+                {children}
+              </code>
+            </pre>
+          ) : (
+            <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono" {...props}>
+              {children}
+            </code>
+          )
+        },
+        table({ children }) {
+          return (
+            <div className="overflow-x-auto my-4">
+              <table className="min-w-full divide-y divide-gray-300 border border-gray-300 rounded-lg">
+                {children}
+              </table>
+            </div>
+          )
+        },
+        th({ children }) {
+          return <th className="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">{children}</th>
+        },
+        td({ children }) {
+          return <td className="px-4 py-2 text-sm text-gray-900 border-t">{children}</td>
+        },
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  )
+}
+
+// CHAT MESSAGE COMPONENT WITH MARKDOWN
+const ChatMessage = ({ message }: { message: Message }) => {
+  const isUser = message.role === 'user'
+
+  return (
+    <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {!isUser && (
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-bold text-sm">G</span>
+        </div>
+      )}
+      <div className={`max-w-2xl ${isUser ? 'bg-blue-600 text-white' : 'bg-white'} rounded-2xl px-5 py-3 shadow-sm`}>
+        {isUser ? (
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <MarkdownViewer>{message.content}</MarkdownViewer>
+        )}
+      </div>
+      {isUser && (
+        <div className="w-9 h-9 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-bold text-sm">U</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function App() {
   const [isLoading, setIsLoading] = useState(false)
@@ -148,46 +221,15 @@ function App() {
       .eq('id', configProject.id)
   }
 
-  const openDeleteModal = (project: { id: string; title: string }) => {
-    setProjectIdToDelete(project.id)
-    setProjectTitleToDelete(project.title)
-    setDeleteModalOpen(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!projectIdToDelete) return
-    await supabase.storage.from('project-files').remove([`project_${projectIdToDelete}/`])
-    await supabase.from('conversations').delete().eq('project_id', projectIdToDelete)
-    await supabase.from('projects').delete().eq('id', projectIdToDelete)
-    setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
-    if (currentProject?.id === projectIdToDelete) {
-      setCurrentProject(null)
-      setCurrentProjectId(null)
-    }
-    setDeleteModalOpen(false)
-    setConfigProject(null)
-  }
-
-  // FULLY RESTORED & WORKING SEND MESSAGE
   const sendMessage = async (content: string) => {
     if (!settings.apiKey) {
       setError('Set API key in Settings')
       navigate('/settings')
       return
     }
-    if (!currentConv) {
-      setError('No conversation selected')
-      return
-    }
-    if (!content.trim()) return
+    if (!currentConv || !content.trim()) return
 
-    const userMessage = {
-      role: 'user' as const,
-      content,
-      timestamp: Date.now(),
-    }
-
-    await addMessage(userMessage)
+    await addMessage({ role: 'user', content, timestamp: Date.now() })
     setIsLoading(true)
     setError(null)
 
@@ -210,22 +252,17 @@ function App() {
         }),
       })
 
-      if (!res.ok) {
-        const err = await res.text()
-        throw new Error(`API Error ${res.status}: ${err}`)
-      }
-
+      if (!res.ok) throw new Error(`API Error ${res.status}`)
       const data = await res.json()
-      const assistantContent = data.choices?.[0]?.message?.content || 'No response'
+      const reply = data.choices?.[0]?.message?.content || 'No response'
 
       await addMessage({
         role: 'assistant',
-        content: assistantContent,
+        content: reply,
         timestamp: Date.now(),
       })
     } catch (err: any) {
-      console.error('Send failed:', err)
-      setError(err.message || 'Failed to send message')
+      setError(err.message || 'Failed to send')
     } finally {
       setIsLoading(false)
     }
@@ -241,7 +278,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* HEADER */}
+      {/* HEADER & SIDEBAR - unchanged */}
       {!isSettingsPage && (
         <header className="bg-white border-b shadow-sm flex items-center justify-between px-4 py-3 z-50">
           <div className="flex items-center gap-3">
@@ -284,7 +321,7 @@ function App() {
                 projects={filteredProjects}
                 onSelectProject={(id) => { setCurrentProjectId(id); setCurrentConvId(null); setIsSidebarOpen(false); }}
                 onCreateNew={createProject}
-                onDeleteProject={openDeleteModal}
+                onDeleteProject={(p) => { setProjectIdToDelete(p.id); setProjectTitleToDelete(p.title); setDeleteModalOpen(true); }}
                 onUpdateTitle={(id, title) => supabase.from('projects').update({ title }).eq('id', id)}
                 onOpenConfig={openConfig}
               />
@@ -351,7 +388,6 @@ function App() {
             </div>
           </div>
 
-          {/* CHAT INPUT */}
           {!isSettingsPage && (
             <div className="bg-white border-t">
               <div className="max-w-4xl mx-auto">
@@ -446,29 +482,16 @@ function App() {
             <p className="text-gray-600 mb-8">This cannot be undone.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={() => setDeleteModalOpen(false)} className="px-6 py-3 bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={confirmDelete} className="px-6 py-3 bg-red-600 text-white rounded-lg">Delete</button>
+              <button onClick={async () => {
+                if (!projectIdToDelete) return
+                await supabase.storage.from('project-files').remove([`project_${projectIdToDelete}/`])
+                await supabase.from('conversations').delete().eq('project_id', projectIdToDelete)
+                await supabase.from('projects').delete().eq('id', projectIdToDelete)
+                setProjects(prev => prev.filter(p => p.id !== projectIdToDelete))
+                setDeleteModalOpen(false)
+                setConfigProject(null)
+              }} className="px-6 py-3 bg-red-600 text-white rounded-lg">Delete</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ALERTS */}
-      {!isSettingsPage && !settings.apiKey && (
-        <div className="fixed bottom-24 left-4 right-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 z-50 shadow-lg">
-          <div className="flex items-center gap-3 text-yellow-800">
-            <AlertCircle size={20} />
-            <p className="text-sm font-medium">Add your API key in Settings to chat</p>
-            <button onClick={() => navigate('/settings')} className="ml-auto underline text-sm">Settings</button>
-          </div>
-        </div>
-      )}
-
-      {!isSettingsPage && error && (
-        <div className="fixed bottom-24 left-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 z-50 shadow-lg">
-          <div className="flex items-center gap-3 text-red-800">
-            <AlertCircle size={20} />
-            <p className="text-sm font-medium">{error}</p>
-            <button onClick={() => setError(null)} className="ml-auto text-sm">Dismiss</button>
           </div>
         </div>
       )}
