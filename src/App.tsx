@@ -4,8 +4,7 @@ import { Message, FileAttachment } from './types';
 import { useSettings } from './hooks/useSettings';
 import { useMessages } from './hooks/useMessages';
 import { ModelSelectorModal } from './components/ModelSelectorModal';
-import { ProjectsList } from './components/ProjectsList';
-import { ConversationsList } from './components/ConversationsList';
+import { HierarchicalSidebar } from './components/HierarchicalSidebar';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { SettingsPage } from './components/SettingsPage';
@@ -68,23 +67,23 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
-  const handleCreateNewProject = () => {
-    createProject();
-  };
-
   const handleSelectProject = (projectId: string) => {
     setCurrentProjectId(projectId);
     setCurrentConvId(null); // Reset conv when switching projects
     setIsSidebarOpen(false); // Close on mobile
   };
 
-  const handleCreateNewConv = () => {
-    createConversation();
+  const handleCreateNewProject = () => {
+    createProject();
   };
 
   const handleSelectConv = (convId: string) => {
     setCurrentConvId(convId);
     setIsSidebarOpen(false); // Close on mobile
+  };
+
+  const handleCreateNewConv = (projectId?: string) => {
+    createConversation(); // Can pass projectId if needed, but currentProject handles it
   };
 
   const handleDeleteConv = (convId: string) => {

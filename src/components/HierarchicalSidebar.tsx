@@ -176,7 +176,7 @@ export function HierarchicalSidebar({
 
                   {/* Nested Conversations */}
                   {isExpanded && (
-                    <ul className="bg-gray-50">
+                    <ul className="bg-gray-50 divide-y divide-gray-200">
                       {projectConvs.length === 0 ? (
                         <li className="p-4 text-center text-sm text-gray-500">
                           No conversations in this project
@@ -192,7 +192,7 @@ export function HierarchicalSidebar({
                           <li key={conv.id} className="relative">
                             <div 
                               onClick={() => handleConvClick(conv.id)}
-                              className={`p-4 hover:bg-gray-100 transition-colors flex items-center justify-between cursor-pointer select-none ${currentConvId === conv.id ? 'bg-white border-l-2 border-blue-500' : ''}`}
+                              className={`p-4 hover:bg-gray-100 transition-colors flex items-center justify-between cursor-pointer select-none ${currentConvId === conv.id ? 'bg-white border-l-4 border-blue-500' : ''}`}
                             >
                               <div className="flex-1 min-w-0 mr-2">
                                 {editingItemId === conv.id ? (
@@ -219,7 +219,7 @@ export function HierarchicalSidebar({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleEditStart(conv, conv.title, false);
+                                    handleEditStart(conv.id, conv.title, false);
                                   }}
                                   className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                                   aria-label="Edit conversation title"
@@ -229,7 +229,7 @@ export function HierarchicalSidebar({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onDeleteConv(conv.id);
+                                    handleDelete(e, conv.id);
                                   }}
                                   className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
                                   aria-label="Delete conversation"
@@ -244,8 +244,8 @@ export function HierarchicalSidebar({
                     </ul>
                   )}
                 </li>
-              )}
-            )}
+              );
+            })}
           </ul>
         </div>
 
@@ -255,7 +255,7 @@ export function HierarchicalSidebar({
             <div className="text-gray-500">
               <p className="text-sm font-medium mb-2">No projects yet</p>
               <button
-                onClick={onCreateNew}
+                onClick={onCreateNewProject}
                 className="text-blue-600 hover:text-blue-700 text-sm underline"
               >
                 Create a new project
